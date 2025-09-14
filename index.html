@@ -267,6 +267,7 @@
         <div class="controls">
             <button id="startBtn" onclick="startTracking()">Start Tracking</button>
             <button id="stopBtn" onclick="stopTracking()" disabled>Stop Tracking</button>
+            <button id="pauseBtn" onclick="togglePause()" disabled>Pause</button>
             <button onclick="resetTrip()">Reset Trip</button>
             <button onclick="refillTank()">Refill Tank</button>
         </div>
@@ -289,6 +290,10 @@
                     <input type="number" id="localSpeed" value="30" min="10" max="60">
                     <label> → MPG: </label>
                     <input type="number" id="localMPG" value="35" min="15" max="60">
+                </div>
+                <div>
+                    <label>Idle Consumption (gal/hr): </label>
+                    <input type="number" id="idleConsumption" value="0.2" min="0.1" max="0.5" step="0.1">
                 </div>
             </div>
             <div style="text-align: center; margin-top: 15px;">
@@ -399,6 +404,7 @@
         
         // State variables
         let isTracking = false;
+        let isPaused = false;
         let watchId = null;
         let lastPosition = null;
         let lastTime = null;
@@ -446,13 +452,15 @@
                 document.getElementById('highwayMPG').value = calibration.highway.mpg;
                 document.getElementById('localSpeed').value = calibration.local.speed;
                 document.getElementById('localMPG').value = calibration.local.mpg;
+                document.getElementById('idleConsumption').value = calibration.idle.gallonsPerHour;
             }
         }
         
         // Calibration points
         let calibration = {
             highway: {speed: 60, mpg: 45},
-            local: {speed: 30, mpg: 35}
+            local: {speed: 30, mpg: 35},
+            idle: {gallonsPerHour: 0.2} // Typical motorcycle idle consumption
         };
         
         function interpolateMPG(speed) {
@@ -477,7 +485,12 @@
         }
         
         function calculateFuelConsumption(speed, timeMinutes) {
-            if (speed <= 0 || timeMinutes <= 0) return 0;
+            if (timeMinutes <= 0) return 0;
+            
+            // Handle idle consumption for very low speeds (< 5 mph)
+            if (speed < 5) {
+                return calibration.idle.gallonsPerHour * (timeMinutes / 60);
+            }
             
             const mpg = interpolateMPG(speed);
             const milesTrailed = speed * (timeMinutes / 60);
@@ -503,8 +516,10 @@
             );
             
             isTracking = true;
+            isPaused = false;
             document.getElementById('startBtn').disabled = true;
             document.getElementById('stopBtn').disabled = false;
+            document.getElementById('pauseBtn').disabled = false;
             document.getElementById('status').textContent = 'GPS tracking started. Waiting for position data...';
             
             // Keep screen on (where supported)
@@ -520,16 +535,32 @@
             }
             
             isTracking = false;
+            isPaused = false;
             lastPosition = null;
             lastTime = null;
             
             document.getElementById('startBtn').disabled = false;
             document.getElementById('stopBtn').disabled = true;
+            document.getElementById('pauseBtn').disabled = true;
+            document.getElementById('pauseBtn').textContent = 'Pause';
             document.getElementById('status').textContent = 'GPS tracking stopped.';
             document.getElementById('currentSpeed').textContent = '0';
             document.getElementById('currentMPG').textContent = '--';
             
             saveData();
+        }
+        
+        function togglePause() {
+            isPaused = !isPaused;
+            const pauseBtn = document.getElementById('pauseBtn');
+            
+            if (isPaused) {
+                pauseBtn.textContent = 'Resume';
+                document.getElementById('status').textContent = 'Tracking paused - fuel consumption stopped.';
+            } else {
+                pauseBtn.textContent = 'Pause';
+                document.getElementById('status').textContent = 'Tracking resumed - fuel consumption active.';
+            }
         }
         
         function handlePositionUpdate(position) {
@@ -603,10 +634,12 @@
             const currentMPG = interpolateMPG(speed);
             document.getElementById('currentMPG').textContent = currentMPG.toFixed(1);
             
-            // Calculate fuel consumption for this interval
-            const fuelConsumed = calculateFuelConsumption(speed, timeMinutes);
-            fuelUsed += fuelConsumed;
-            tripDistance += distance;
+            // Only calculate fuel consumption and distance if not paused
+            if (!isPaused) {
+                const fuelConsumed = calculateFuelConsumption(speed, timeMinutes);
+                fuelUsed += fuelConsumed;
+                tripDistance += distance;
+            }
             
             // Update displays
             document.getElementById('fuelUsed').textContent = fuelUsed.toFixed(3);
@@ -647,6 +680,7 @@
             calibration.highway.mpg = parseInt(document.getElementById('highwayMPG').value);
             calibration.local.speed = parseInt(document.getElementById('localSpeed').value);
             calibration.local.mpg = parseInt(document.getElementById('localMPG').value);
+            calibration.idle.gallonsPerHour = parseFloat(document.getElementById('idleConsumption').value);
             
             // Update current MPG display if tracking
             if (isTracking) {
