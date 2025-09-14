@@ -234,6 +234,12 @@
             </div>
             
             <div class="metric-card">
+                <div class="metric-label">Engine RPM</div>
+                <div class="metric-value" id="currentRPM">--</div>
+                <div class="metric-label">RPM</div>
+            </div>
+            
+            <div class="metric-card">
                 <div class="metric-label">Estimated MPG</div>
                 <div class="metric-value" id="currentMPG">--</div>
                 <div class="metric-label">Miles/Gallon</div>
@@ -294,6 +300,31 @@
                 <div>
                     <label>Idle Consumption (gal/hr): </label>
                     <input type="number" id="idleConsumption" value="0.2" min="0.1" max="0.5" step="0.1">
+                </div>
+            </div>
+            
+            <h4 style="margin: 20px 0 10px 0; text-align: center;">🔧 Engine Configuration</h4>
+            <div class="cal-points">
+                <div>
+                    <label>Cylinders: </label>
+                    <select id="engineCylinders">
+                        <option value="1">Single (1)</option>
+                        <option value="2" selected>Twin (2)</option>
+                        <option value="3">Triple (3)</option>
+                        <option value="4">Four (4)</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Idle RPM: </label>
+                    <input type="number" id="idleRPM" value="1200" min="600" max="2000" step="50">
+                </div>
+                <div>
+                    <label>Redline RPM: </label>
+                    <input type="number" id="redlineRPM" value="8000" min="6000" max="15000" step="100">
+                </div>
+                <div>
+                    <label>Enable RPM Detection: </label>
+                    <input type="checkbox" id="enableRPM" checked>
                 </div>
             </div>
             <div style="text-align: center; margin-top: 15px;">
@@ -447,6 +478,15 @@
         let tripDistance = 0;
         let tankCapacity = 4.5;
         
+        // RPM Detection variables
+        let rpmAudioContext = null;
+        let rpmAudioStream = null;
+        let rpmAnalyser = null;
+        let rpmDataArray = null;
+        let rpmAnimationId = null;
+        let currentRPM = 0;
+        let rpmEnabled = true;
+        
         // Load saved data
         window.addEventListener('load', () => {
             loadSavedData();
@@ -488,6 +528,15 @@
                 document.getElementById('localSpeed').value = calibration.local.speed;
                 document.getElementById('localMPG').value = calibration.local.mpg;
                 document.getElementById('idleConsumption').value = calibration.idle.gallonsPerHour;
+                
+                // Update engine configuration inputs
+                document.getElementById('engineCylinders').value = calibration.engine.cylinders;
+                document.getElementById('idleRPM').value = calibration.engine.idleRPM;
+                document.getElementById('redlineRPM').value = calibration.engine.redlineRPM;
+                document.getElementById('enableRPM').checked = calibration.engine.enableRPM;
+                
+                // Initialize RPM state
+                rpmEnabled = calibration.engine.enableRPM;
             }
         }
         
@@ -495,7 +544,13 @@
         let calibration = {
             highway: {speed: 60, mpg: 45},
             local: {speed: 30, mpg: 35},
-            idle: {gallonsPerHour: 0.2} // Typical motorcycle idle consumption
+            idle: {gallonsPerHour: 0.2}, // Typical motorcycle idle consumption
+            engine: {
+                cylinders: 2,
+                idleRPM: 1200,
+                redlineRPM: 8000,
+                enableRPM: true
+            }
         };
         
         function interpolateMPG(speed) {
@@ -519,7 +574,7 @@
             return local.mpg + (highway.mpg - local.mpg) * ratio;
         }
         
-        function calculateFuelConsumption(speed, timeMinutes) {
+        function calculateFuelConsumption(speed, timeMinutes, rpm = null) {
             if (timeMinutes <= 0) return 0;
             
             // Handle idle consumption for very low speeds (< 5 mph)
@@ -527,9 +582,69 @@
                 return calibration.idle.gallonsPerHour * (timeMinutes / 60);
             }
             
+            // Use advanced RPM-based calculation if available
+            if (rpm && rpm > 0 && calibration.engine.enableRPM) {
+                return calculateRPMBasedFuelConsumption(speed, rpm, timeMinutes);
+            }
+            
+            // Fallback to speed-only calculation
             const mpg = interpolateMPG(speed);
             const milesTrailed = speed * (timeMinutes / 60);
             return milesTrailed / mpg;
+        }
+        
+        function calculateRPMBasedFuelConsumption(speed, rpm, timeMinutes) {
+            const {idleRPM, redlineRPM} = calibration.engine;
+            const milesTrailed = speed * (timeMinutes / 60);
+            
+            // Calculate engine load factor based on RPM vs Speed relationship
+            const expectedRPMForSpeed = calculateExpectedRPM(speed);
+            const loadFactor = Math.max(0.3, Math.min(2.0, rpm / expectedRPMForSpeed));
+            
+            // Base MPG from speed interpolation
+            const baseMPG = interpolateMPG(speed);
+            
+            // Apply RPM-based corrections
+            const rpmFactor = calculateRPMEfficiencyFactor(rpm);
+            const loadPenalty = Math.pow(loadFactor, 0.8); // Higher load = worse efficiency
+            
+            // Calculate final MPG with RPM considerations
+            const finalMPG = baseMPG * rpmFactor / loadPenalty;
+            
+            return milesTrailed / Math.max(5, finalMPG); // Minimum 5 MPG sanity check
+        }
+        
+        function calculateExpectedRPM(speed) {
+            // Estimate expected RPM based on typical motorcycle gearing
+            // This is a simplified model - real motorcycles vary significantly
+            if (speed < 10) return calibration.engine.idleRPM;
+            if (speed < 25) return calibration.engine.idleRPM + (speed - 10) * 100; // Low gears
+            if (speed < 45) return 2500 + (speed - 25) * 75; // Mid gears
+            return 4000 + (speed - 45) * 50; // High gears
+        }
+        
+        function calculateRPMEfficiencyFactor(rpm) {
+            const {idleRPM, redlineRPM} = calibration.engine;
+            
+            // Most efficient RPM range is typically 25-40% of redline
+            const efficientRPMMin = redlineRPM * 0.25;
+            const efficientRPMMax = redlineRPM * 0.40;
+            
+            if (rpm < idleRPM) return 0.4; // Very inefficient below idle
+            if (rpm >= idleRPM && rpm < efficientRPMMin) {
+                // Gradually improve from idle to efficient range
+                return 0.7 + 0.3 * (rpm - idleRPM) / (efficientRPMMin - idleRPM);
+            }
+            if (rpm >= efficientRPMMin && rpm <= efficientRPMMax) {
+                return 1.0; // Peak efficiency
+            }
+            if (rpm > efficientRPMMax) {
+                // Efficiency degrades after peak range
+                const overRevFactor = Math.min(1.0, (redlineRPM - rpm) / (redlineRPM - efficientRPMMax));
+                return 0.6 + 0.4 * overRevFactor;
+            }
+            
+            return 0.5; // Default fallback
         }
         
         function startTracking() {
@@ -561,6 +676,11 @@
             if ('wakeLock' in navigator) {
                 navigator.wakeLock.request('screen').catch(() => {});
             }
+            
+            // Start RPM detection if enabled
+            if (rpmEnabled && calibration.engine.enableRPM) {
+                startRPMDetection();
+            }
         }
         
         function stopTracking() {
@@ -581,6 +701,9 @@
             document.getElementById('status').textContent = 'GPS tracking stopped.';
             document.getElementById('currentSpeed').textContent = '0';
             document.getElementById('currentMPG').textContent = '--';
+            
+            // Stop RPM detection
+            stopRPMDetection();
             
             saveData();
         }
@@ -666,12 +789,25 @@
             // Update current readings
             document.getElementById('currentSpeed').textContent = Math.round(speed);
             
-            const currentMPG = interpolateMPG(speed);
+            // Calculate MPG considering RPM if available
+            let currentMPG;
+            if (currentRPM > 0 && calibration.engine.enableRPM) {
+                // Use RPM-aware MPG calculation
+                const baseMPG = interpolateMPG(speed);
+                const rpmFactor = calculateRPMEfficiencyFactor(currentRPM);
+                const expectedRPM = calculateExpectedRPM(speed);
+                const loadFactor = Math.max(0.3, Math.min(2.0, currentRPM / expectedRPM));
+                const loadPenalty = Math.pow(loadFactor, 0.8);
+                currentMPG = baseMPG * rpmFactor / loadPenalty;
+            } else {
+                currentMPG = interpolateMPG(speed);
+            }
+            
             document.getElementById('currentMPG').textContent = currentMPG.toFixed(1);
             
             // Only calculate fuel consumption and distance if not paused
             if (!isPaused) {
-                const fuelConsumed = calculateFuelConsumption(speed, timeMinutes);
+                const fuelConsumed = calculateFuelConsumption(speed, timeMinutes, currentRPM);
                 fuelUsed += fuelConsumed;
                 tripDistance += distance;
             }
@@ -716,6 +852,13 @@
             calibration.local.speed = parseInt(document.getElementById('localSpeed').value);
             calibration.local.mpg = parseInt(document.getElementById('localMPG').value);
             calibration.idle.gallonsPerHour = parseFloat(document.getElementById('idleConsumption').value);
+            
+            // Update engine configuration
+            calibration.engine.cylinders = parseInt(document.getElementById('engineCylinders').value);
+            calibration.engine.idleRPM = parseInt(document.getElementById('idleRPM').value);
+            calibration.engine.redlineRPM = parseInt(document.getElementById('redlineRPM').value);
+            calibration.engine.enableRPM = document.getElementById('enableRPM').checked;
+            rpmEnabled = calibration.engine.enableRPM;
             
             // Update current MPG display if tracking
             if (isTracking) {
@@ -876,6 +1019,142 @@
             document.getElementById('testSummary').innerHTML = summary;
             document.getElementById('testResults').style.display = 'block';
             document.getElementById('micStatus').textContent = 'Test completed. See results below.';
+        }
+        
+        // RPM Detection Functions
+        async function startRPMDetection() {
+            if (!rpmEnabled || !calibration.engine.enableRPM) return;
+            
+            try {
+                // Request microphone access for RPM detection
+                rpmAudioStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false,
+                        sampleRate: 22050
+                    }
+                });
+                
+                // Create audio context for RPM analysis
+                rpmAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const source = rpmAudioContext.createMediaStreamSource(rpmAudioStream);
+                
+                // Set up analyzer for RPM detection
+                rpmAnalyser = rpmAudioContext.createAnalyser();
+                rpmAnalyser.fftSize = 2048;
+                rpmAnalyser.smoothingTimeConstant = 0.8; // Smooth RPM readings
+                
+                const bufferLength = rpmAnalyser.frequencyBinCount;
+                rpmDataArray = new Uint8Array(bufferLength);
+                
+                source.connect(rpmAnalyser);
+                
+                // Start RPM analysis loop
+                analyzeRPM();
+                
+            } catch (error) {
+                console.log('RPM detection failed:', error.message);
+                // Continue with GPS-only tracking
+            }
+        }
+        
+        function analyzeRPM() {
+            if (!rpmAnalyser || !rpmEnabled) return;
+            
+            rpmAnalyser.getByteFrequencyData(rpmDataArray);
+            
+            const cylinders = calibration.engine.cylinders;
+            const idleRPM = calibration.engine.idleRPM;
+            const redlineRPM = calibration.engine.redlineRPM;
+            
+            // Calculate expected frequency ranges for this engine
+            const minFreq = (idleRPM * cylinders) / 120; // Fundamental at idle
+            const maxFreq = (redlineRPM * cylinders) / 60; // 2nd harmonic at redline
+            
+            // Convert frequency to FFT bin indices
+            const sampleRate = rpmAudioContext.sampleRate;
+            const binSize = sampleRate / rpmAnalyser.fftSize;
+            const minBin = Math.max(1, Math.floor(minFreq / binSize));
+            const maxBin = Math.min(rpmDataArray.length - 1, Math.floor(maxFreq / binSize));
+            
+            // Find dominant peaks in engine frequency range
+            let maxAmplitude = 0;
+            let peakBin = 0;
+            let secondaryPeak = 0;
+            let secondaryBin = 0;
+            
+            for (let i = minBin; i <= maxBin; i++) {
+                if (rpmDataArray[i] > maxAmplitude) {
+                    // Shift previous peak to secondary
+                    secondaryPeak = maxAmplitude;
+                    secondaryBin = peakBin;
+                    
+                    maxAmplitude = rpmDataArray[i];
+                    peakBin = i;
+                } else if (rpmDataArray[i] > secondaryPeak) {
+                    secondaryPeak = rpmDataArray[i];
+                    secondaryBin = i;
+                }
+            }
+            
+            // Calculate RPM from dominant frequency
+            if (maxAmplitude > 50) { // Minimum threshold for valid signal
+                const dominantFreq = peakBin * binSize;
+                let calculatedRPM = 0;
+                
+                // Try fundamental frequency first (more accurate for lower RPMs)
+                const fundamentalRPM = (dominantFreq * 120) / cylinders;
+                
+                // Try 2nd harmonic (often stronger signal)
+                const harmonicRPM = (dominantFreq * 60) / cylinders;
+                
+                // Choose the RPM that's within reasonable engine range
+                if (fundamentalRPM >= idleRPM * 0.8 && fundamentalRPM <= redlineRPM * 1.2) {
+                    calculatedRPM = fundamentalRPM;
+                } else if (harmonicRPM >= idleRPM * 0.8 && harmonicRPM <= redlineRPM * 1.2) {
+                    calculatedRPM = harmonicRPM;
+                }
+                
+                // Apply smoothing to prevent erratic readings
+                if (calculatedRPM > 0) {
+                    currentRPM = currentRPM * 0.7 + calculatedRPM * 0.3;
+                    document.getElementById('currentRPM').textContent = Math.round(currentRPM);
+                }
+            } else {
+                // No strong signal - possibly idle or engine off
+                if (currentRPM > idleRPM * 0.5) {
+                    currentRPM = currentRPM * 0.9; // Gradually decrease
+                    document.getElementById('currentRPM').textContent = Math.round(currentRPM);
+                } else {
+                    document.getElementById('currentRPM').textContent = '--';
+                    currentRPM = 0;
+                }
+            }
+            
+            rpmAnimationId = requestAnimationFrame(analyzeRPM);
+        }
+        
+        function stopRPMDetection() {
+            if (rpmAnimationId) {
+                cancelAnimationFrame(rpmAnimationId);
+                rpmAnimationId = null;
+            }
+            
+            if (rpmAudioStream) {
+                rpmAudioStream.getTracks().forEach(track => track.stop());
+                rpmAudioStream = null;
+            }
+            
+            if (rpmAudioContext) {
+                rpmAudioContext.close();
+                rpmAudioContext = null;
+            }
+            
+            rpmAnalyser = null;
+            rpmDataArray = null;
+            currentRPM = 0;
+            document.getElementById('currentRPM').textContent = '--';
         }
     </script>
 </body>
