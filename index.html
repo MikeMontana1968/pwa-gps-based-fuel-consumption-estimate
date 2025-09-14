@@ -1264,6 +1264,10 @@
         let currentLateralG = 0;
         let motionAnimationId = null;
 
+        // Roll angle filtering variables
+        let rollAngleHistory = [];
+        let rollAngleCalibrationOffset = 0;
+
         // Daylight calculation variables
         let lastSunsetCalculation = null;
         let sunsetTime = null;
@@ -1418,11 +1422,8 @@
             // Calculate magnitude and individual components
             const magnitude = Math.sqrt(x*x + y*y + z*z);
 
-            // Calculate roll angle from accelerometer data
-            // Roll is rotation around the Y-axis (forward/back axis of motorcycle)
-            // Using atan2 for proper quadrant handling
-            const rollAngleRad = Math.atan2(x, Math.sqrt(y*y + z*z));
-            currentRollAngle = rollAngleRad * (180 / Math.PI); // Convert to degrees
+            // Calculate roll angle with better filtering
+            calculateRollAngle(x, y, z);
 
             // Calculate lateral G-force (sideways acceleration in G units)
             // X-axis represents left/right acceleration relative to motorcycle
@@ -1511,25 +1512,61 @@
             motionAnimationId = setTimeout(updateAccelerationVector, 67);
         }
 
+        function calculateRollAngle(x, y, z) {
+            // Improved roll angle calculation with proper filtering
+
+            // First, check if we have enough acceleration magnitude to trust the reading
+            const totalAccel = Math.sqrt(x*x + y*y + z*z);
+
+            // Only calculate roll when we're close to 1G (gravity)
+            // This filters out periods of acceleration/deceleration that skew readings
+            if (totalAccel < 8.0 || totalAccel > 12.0) {
+                // During acceleration/deceleration, don't update roll angle
+                return;
+            }
+
+            // Calculate roll angle using improved formula
+            // Roll angle is the angle between the gravity vector and the Z-axis
+            const rollAngleRad = Math.atan2(x, z);
+            let rawRollAngle = rollAngleRad * (180 / Math.PI);
+
+            // Apply deadband to eliminate small noise
+            if (Math.abs(rawRollAngle) < 3.0) {
+                rawRollAngle = 0;
+            }
+
+            // Add to rolling history for better filtering
+            rollAngleHistory.push(rawRollAngle);
+            if (rollAngleHistory.length > 10) {
+                rollAngleHistory.shift(); // Keep only last 10 readings
+            }
+
+            // Use median filtering to eliminate spikes
+            const sortedAngles = [...rollAngleHistory].sort((a, b) => a - b);
+            const medianAngle = sortedAngles[Math.floor(sortedAngles.length / 2)];
+
+            // Apply heavy smoothing - motorcycle roll changes should be gradual
+            currentRollAngle = currentRollAngle * 0.92 + medianAngle * 0.08;
+        }
+
         function updateRollDisplay(rollAngle) {
-            // Smooth the roll angle to reduce jitter
-            const smoothedAngle = currentRollAngle * 0.85 + rollAngle * 0.15;
-            currentRollAngle = smoothedAngle;
+            // Display the already-filtered roll angle
+            const displayAngle = currentRollAngle;
 
             // Update text display
-            document.getElementById('rollAngle').textContent = Math.round(smoothedAngle) + '°';
+            document.getElementById('rollAngle').textContent = Math.round(displayAngle) + '°';
 
             // Update artificial horizon
             const horizonLine = document.getElementById('horizonLine');
             if (horizonLine) {
                 // Rotate the horizon line opposite to the roll angle
                 // (aircraft symbol stays fixed, horizon rotates)
-                horizonLine.setAttribute('transform', `rotate(${-smoothedAngle})`);
+                horizonLine.setAttribute('transform', `rotate(${-displayAngle})`);
             }
 
             // Color coding based on lean angle severity
             const rollText = document.getElementById('rollAngle');
-            const absAngle = Math.abs(smoothedAngle);
+            const absAngle = Math.abs(displayAngle);
 
             if (absAngle < 15) {
                 rollText.style.color = '#00ff00'; // Green - upright
@@ -1596,6 +1633,7 @@
 
             // Reset roll display
             currentRollAngle = 0;
+            rollAngleHistory = [];
             document.getElementById('rollAngle').textContent = '0°';
             document.getElementById('rollAngle').style.color = '#00ff00';
             const horizonLine = document.getElementById('horizonLine');
