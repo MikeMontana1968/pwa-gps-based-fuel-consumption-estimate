@@ -268,6 +268,31 @@
                 <div class="metric-value" id="tripDistance">0.0</div>
                 <div class="metric-label">Miles</div>
             </div>
+            
+            <div class="metric-card">
+                <div class="metric-label">Acceleration</div>
+                <div class="metric-value" style="height: 100px; display: flex; align-items: center; justify-content: center;">
+                    <svg id="accelVector" width="80" height="80" viewBox="-40 -40 80 80" style="background: rgba(255,255,255,0.1); border-radius: 50%;">
+                        <!-- 3D coordinate system -->
+                        <line x1="-30" y1="0" x2="30" y2="0" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+                        <line x1="0" y1="-30" x2="0" y2="30" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+                        <circle cx="0" cy="0" r="2" fill="rgba(255,255,255,0.5)"/>
+                        
+                        <!-- Acceleration vector arrow -->
+                        <line id="accelArrow" x1="0" y1="0" x2="0" y2="0" stroke="#00ff00" stroke-width="3" marker-end="url(#arrowhead)"/>
+                        
+                        <!-- Arrow marker -->
+                        <defs>
+                            <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                                <polygon points="0 0, 8 3, 0 6" fill="#00ff00"/>
+                            </marker>
+                        </defs>
+                    </svg>
+                </div>
+                <div class="metric-label">
+                    <span id="accelMagnitude">0.0</span> m/s²
+                </div>
+            </div>
         </div>
         
         <div class="controls">
@@ -370,7 +395,7 @@
 
     <!-- Version Footer -->
     <div style="text-align: center; padding: 20px; opacity: 0.7; font-size: 0.8em; color: white;">
-        v2.0.2 • RPM Edition
+        v2.1.0 • RPM Edition
     </div>
 
     <!-- PWA Install Banner -->
@@ -686,6 +711,9 @@
             if (rpmEnabled && calibration.engine.enableRPM) {
                 startRPMDetection();
             }
+            
+            // Start IMU motion detection
+            startMotionDetection();
         }
         
         function stopTracking() {
@@ -709,6 +737,9 @@
             
             // Stop RPM detection
             stopRPMDetection();
+            
+            // Stop IMU motion detection
+            stopMotionDetection();
             
             saveData();
         }
@@ -1188,6 +1219,100 @@
             rpmDataArray = null;
             currentRPM = 0;
             document.getElementById('currentRPM').textContent = '--';
+        }
+        
+        // IMU and Motion Detection
+        let motionEnabled = false;
+        let currentAccel = { x: 0, y: 0, z: 0 };
+        let currentGyro = { x: 0, y: 0, z: 0 };
+        let motionAnimationId = null;
+        
+        function startMotionDetection() {
+            if ('DeviceMotionEvent' in window) {
+                if (typeof DeviceMotionEvent.requestPermission === 'function') {
+                    // iOS 13+ permission request
+                    DeviceMotionEvent.requestPermission()
+                        .then(permission => {
+                            if (permission === 'granted') {
+                                enableMotionListeners();
+                            } else {
+                                console.log('Motion permission denied');
+                            }
+                        })
+                        .catch(console.error);
+                } else {
+                    // Android and older iOS
+                    enableMotionListeners();
+                }
+            } else {
+                console.log('DeviceMotionEvent not supported');
+            }
+        }
+        
+        function enableMotionListeners() {
+            motionEnabled = true;
+            
+            window.addEventListener('devicemotion', (event) => {
+                if (event.acceleration) {
+                    currentAccel.x = event.acceleration.x || 0;
+                    currentAccel.y = event.acceleration.y || 0;
+                    currentAccel.z = event.acceleration.z || 0;
+                }
+                
+                if (event.rotationRate) {
+                    currentGyro.x = event.rotationRate.alpha || 0;
+                    currentGyro.y = event.rotationRate.beta || 0;
+                    currentGyro.z = event.rotationRate.gamma || 0;
+                }
+            });
+            
+            // Start 3D vector visualization updates
+            updateAccelerationVector();
+        }
+        
+        function updateAccelerationVector() {
+            if (!motionEnabled) return;
+            
+            const { x, y, z } = currentAccel;
+            
+            // Calculate magnitude
+            const magnitude = Math.sqrt(x*x + y*y + z*z);
+            document.getElementById('accelMagnitude').textContent = magnitude.toFixed(1);
+            
+            // Project 3D vector to 2D display (top-down view)
+            // Scale and limit to viewport
+            const scale = Math.min(25, magnitude * 5); // Max 25px length
+            const vectorX = x * scale;
+            const vectorY = y * scale;
+            
+            // Update SVG arrow
+            const arrow = document.getElementById('accelArrow');
+            arrow.setAttribute('x2', vectorX);
+            arrow.setAttribute('y2', vectorY);
+            
+            // Color based on magnitude (green = low, yellow = medium, red = high)
+            let color = '#00ff00'; // Green
+            if (magnitude > 5) color = '#ffff00'; // Yellow
+            if (magnitude > 10) color = '#ff0000'; // Red
+            
+            arrow.setAttribute('stroke', color);
+            document.querySelector('#arrowhead polygon').setAttribute('fill', color);
+            
+            // Continue updates at 15fps to match RPM detection
+            motionAnimationId = setTimeout(updateAccelerationVector, 67);
+        }
+        
+        function stopMotionDetection() {
+            motionEnabled = false;
+            if (motionAnimationId) {
+                clearTimeout(motionAnimationId);
+                motionAnimationId = null;
+            }
+            
+            // Reset display
+            document.getElementById('accelMagnitude').textContent = '0.0';
+            document.getElementById('accelArrow').setAttribute('x2', '0');
+            document.getElementById('accelArrow').setAttribute('y2', '0');
         }
     </script>
 </body>
