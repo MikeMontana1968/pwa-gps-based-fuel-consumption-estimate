@@ -300,6 +300,41 @@
                 <button onclick="updateCalibration()">Update Calibration</button>
             </div>
         </div>
+        
+        <!-- Microphone Test Section -->
+        <div class="calibration">
+            <h3>🎤 Microphone Test (RPM Detection)</h3>
+            <p style="font-size: 0.9em; opacity: 0.8; margin-bottom: 15px;">
+                Test microphone access for future RPM-based fuel calculations
+            </p>
+            
+            <div class="controls">
+                <button id="micTestBtn" onclick="testMicrophone()">Start Microphone Test</button>
+                <button id="micStopBtn" onclick="stopMicrophone()" disabled>Stop Test</button>
+            </div>
+            
+            <div class="status" id="micStatus">
+                Click "Start Microphone Test" to check iOS PWA compatibility
+            </div>
+            
+            <div class="gps-info" id="audioInfo" style="display: none;">
+                <div class="info-item">
+                    <div class="metric-label">Audio Level</div>
+                    <div class="info-value" id="audioLevel">0</div>
+                    <div class="metric-label">dB</div>
+                </div>
+                <div class="info-item">
+                    <div class="metric-label">Dominant Freq</div>
+                    <div class="info-value" id="dominantFreq">0</div>
+                    <div class="metric-label">Hz</div>
+                </div>
+            </div>
+            
+            <div class="metric-card" id="testResults" style="display: none; margin-top: 15px;">
+                <div class="metric-label">Test Results</div>
+                <div id="testSummary" style="font-size: 0.9em; line-height: 1.4;"></div>
+            </div>
+        </div>
     </div>
 
     <!-- PWA Install Banner -->
@@ -690,6 +725,157 @@
             }
             
             saveData();
+        }
+        
+        // Microphone Test Functionality
+        let audioContext = null;
+        let audioStream = null;
+        let analyser = null;
+        let dataArray = null;
+        let animationId = null;
+        let testResults = {
+            getUserMediaSupported: false,
+            permissionGranted: false,
+            audioContextWorking: false,
+            fftAnalysisWorking: false,
+            standaloneMode: false
+        };
+        
+        function testMicrophone() {
+            document.getElementById('micTestBtn').disabled = true;
+            document.getElementById('micStopBtn').disabled = false;
+            document.getElementById('micStatus').textContent = 'Testing microphone access...';
+            document.getElementById('audioInfo').style.display = 'none';
+            document.getElementById('testResults').style.display = 'none';
+            
+            // Check if running in standalone PWA mode
+            testResults.standaloneMode = window.matchMedia('(display-mode: standalone)').matches;
+            
+            startMicrophoneTest();
+        }
+        
+        async function startMicrophoneTest() {
+            try {
+                // Test 1: Check getUserMedia support
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('getUserMedia not supported');
+                }
+                testResults.getUserMediaSupported = true;
+                document.getElementById('micStatus').textContent = 'getUserMedia supported ✓ Requesting permission...';
+                
+                // Test 2: Request microphone permission
+                audioStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false
+                    }
+                });
+                testResults.permissionGranted = true;
+                document.getElementById('micStatus').textContent = 'Microphone permission granted ✓ Testing Web Audio API...';
+                
+                // Test 3: Create AudioContext
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const source = audioContext.createMediaStreamSource(audioStream);
+                testResults.audioContextWorking = true;
+                document.getElementById('micStatus').textContent = 'Web Audio API working ✓ Testing FFT analysis...';
+                
+                // Test 4: Set up FFT analysis
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 2048;
+                const bufferLength = analyser.frequencyBinCount;
+                dataArray = new Uint8Array(bufferLength);
+                
+                source.connect(analyser);
+                testResults.fftAnalysisWorking = true;
+                
+                document.getElementById('micStatus').textContent = 'All tests passed ✓ Analyzing audio...';
+                document.getElementById('audioInfo').style.display = 'grid';
+                
+                // Start real-time analysis
+                analyzeAudio();
+                
+            } catch (error) {
+                document.getElementById('micStatus').textContent = `❌ Error: ${error.message}`;
+                showTestResults();
+            }
+        }
+        
+        function analyzeAudio() {
+            if (!analyser) return;
+            
+            analyser.getByteFrequencyData(dataArray);
+            
+            // Calculate audio level (RMS)
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+                sum += dataArray[i] * dataArray[i];
+            }
+            const rms = Math.sqrt(sum / dataArray.length);
+            const decibels = Math.round(20 * Math.log10(rms / 255) + 100); // Convert to approximate dB
+            
+            // Find dominant frequency
+            let maxValue = 0;
+            let maxIndex = 0;
+            for (let i = 1; i < dataArray.length; i++) { // Skip DC component
+                if (dataArray[i] > maxValue) {
+                    maxValue = dataArray[i];
+                    maxIndex = i;
+                }
+            }
+            const dominantFreq = Math.round(maxIndex * audioContext.sampleRate / analyser.fftSize);
+            
+            // Update display
+            document.getElementById('audioLevel').textContent = decibels;
+            document.getElementById('dominantFreq').textContent = dominantFreq;
+            
+            animationId = requestAnimationFrame(analyzeAudio);
+        }
+        
+        function stopMicrophone() {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+            
+            if (audioStream) {
+                audioStream.getTracks().forEach(track => track.stop());
+                audioStream = null;
+            }
+            
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            
+            analyser = null;
+            dataArray = null;
+            
+            document.getElementById('micTestBtn').disabled = false;
+            document.getElementById('micStopBtn').disabled = true;
+            document.getElementById('audioInfo').style.display = 'none';
+            
+            showTestResults();
+        }
+        
+        function showTestResults() {
+            const results = testResults;
+            let summary = `
+                <strong>Compatibility Test Results:</strong><br>
+                getUserMedia Support: ${results.getUserMediaSupported ? '✓ Yes' : '❌ No'}<br>
+                Microphone Permission: ${results.permissionGranted ? '✓ Granted' : '❌ Denied'}<br>
+                Web Audio API: ${results.audioContextWorking ? '✓ Working' : '❌ Failed'}<br>
+                FFT Analysis: ${results.fftAnalysisWorking ? '✓ Working' : '❌ Failed'}<br>
+                PWA Mode: ${results.standaloneMode ? 'Standalone' : 'Browser'}<br><br>
+                <strong>RPM Detection Feasibility:</strong><br>
+                ${results.permissionGranted && results.fftAnalysisWorking ? 
+                  '🟢 <strong>FEASIBLE</strong> - All tests passed!' : 
+                  '🔴 <strong>NOT FEASIBLE</strong> - Critical tests failed'}
+            `;
+            
+            document.getElementById('testSummary').innerHTML = summary;
+            document.getElementById('testResults').style.display = 'block';
+            document.getElementById('micStatus').textContent = 'Test completed. See results below.';
         }
     </script>
 </body>
