@@ -1115,9 +1115,9 @@
                     // Test different harmonic interpretations
                     const rpmCandidates = [
                         { rpm: (freq * 120) / cylinders, harmonic: 1, confidence: peak.amplitude * 0.8 }, // Fundamental
-                        { rpm: (freq * 60) / cylinders, harmonic: 2, confidence: peak.amplitude * 1.2 },  // 2nd harmonic (often strongest)
+                        { rpm: (freq * 60) / cylinders, harmonic: 2, confidence: peak.amplitude * 1.1 },  // 2nd harmonic
                         { rpm: (freq * 40) / cylinders, harmonic: 3, confidence: peak.amplitude * 0.9 },  // 3rd harmonic
-                        { rpm: (freq * 30) / cylinders, harmonic: 4, confidence: peak.amplitude * 0.7 }   // 4th harmonic
+                        { rpm: (freq * 30) / cylinders, harmonic: 4, confidence: peak.amplitude * 1.3 }   // 4th harmonic (strong in V-Twins)
                     ];
                     
                     for (const candidate of rpmCandidates) {
@@ -1140,8 +1140,8 @@
                 // Apply additional validation
                 if (bestRPM > 0 && bestConfidence > 150) { // Require high confidence
                 
-                    // Apply stronger smoothing to prevent erratic readings
-                    currentRPM = currentRPM * 0.85 + bestRPM * 0.15; // More conservative smoothing
+                    // Apply even stronger smoothing to prevent erratic readings
+                    currentRPM = currentRPM * 0.90 + bestRPM * 0.10; // Very conservative smoothing for stable idle
                     document.getElementById('currentRPM').textContent = Math.round(currentRPM);
                 } else {
                     // No confident reading - decay current RPM
