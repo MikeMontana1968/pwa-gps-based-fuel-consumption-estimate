@@ -383,7 +383,7 @@
                 </div>
                 <div>
                     <label>Idle RPM: </label>
-                    <input type="number" id="idleRPM" value="1200" min="600" max="2000" step="50">
+                    <input type="number" id="idleRPM" value="950" min="600" max="2000" step="50">
                 </div>
                 <div>
                     <label>Redline RPM: </label>
@@ -531,6 +531,12 @@
         let currentRPM = 0;
         let rpmEnabled = true;
 
+        // Gear shift detection variables
+        let rpmHistory = [];
+        let lastValidRPM = 0;
+        let gearShiftDetected = false;
+        let gearShiftEndTime = 0;
+
         // Audio harmonic tracking for logging
         let currentHarmonics = {
             dominant: { frequency: 0, amplitude: 0 },
@@ -599,7 +605,7 @@
             idle: {gallonsPerHour: 0.2}, // Typical motorcycle idle consumption
             engine: {
                 cylinders: 2,
-                idleRPM: 1200,
+                idleRPM: 950,
                 redlineRPM: 8000,
                 enableRPM: true
             }
@@ -797,8 +803,8 @@
                     const distance = calculateDistance(lastPosition, currentPosition);
                     const speed = (distance / timeDelta) * 60; // mph
                     
-                    // Filter out unrealistic speeds (GPS noise)
-                    if (speed <= 150 && position.coords.accuracy <= 50) {
+                    // Filter out unrealistic speeds and poor GPS accuracy
+                    if (speed <= 150 && position.coords.accuracy <= 20) { // Stricter accuracy requirement
                         updateMetrics(speed, timeDelta, distance);
                     }
                     
@@ -996,7 +1002,7 @@
             
             // Find all significant peaks above threshold - much higher to prevent false positives
             for (let i = minBin; i <= maxBin; i++) {
-                if (rpmDataArray[i] > 160) { // Much higher threshold to eliminate ambient noise
+                if (rpmDataArray[i] > 180) { // Even higher threshold to eliminate ambient noise
                     // Check if this is a local maximum
                     const isLocalMax = (i === 0 || rpmDataArray[i] > rpmDataArray[i-1]) &&
                                       (i === rpmDataArray.length-1 || rpmDataArray[i] > rpmDataArray[i+1]);
@@ -1017,8 +1023,15 @@
             currentHarmonics.third = peaks[2] || { frequency: 0, amplitude: 0 };
             currentHarmonics.fourth = peaks[3] || { frequency: 0, amplitude: 0 };
 
-            // Calculate RPM from detected peaks - require very strong signal
-            if (peaks.length > 0 && peaks[0].amplitude > 200) { // Much higher threshold for valid engine signal
+            // Detect gear shift conditions
+            detectGearShift();
+
+            // Adaptive thresholds based on gear shift detection
+            const baseAmplitudeThreshold = gearShiftDetected ? 160 : 220; // Lower threshold during gear shifts
+            const baseConfidenceThreshold = gearShiftDetected ? 250 : 350; // Lower confidence requirement
+
+            // Calculate RPM from detected peaks - adaptive threshold
+            if (peaks.length > 0 && peaks[0].amplitude > baseAmplitudeThreshold) {
                 let bestRPM = 0;
                 let bestConfidence = 0;
                 
@@ -1051,11 +1064,37 @@
                     }
                 }
                 
-                // Apply strict validation to eliminate false positives
-                if (bestRPM > 0 && bestConfidence > 300) { // Much higher confidence threshold for real engine signals
+                // Apply adaptive validation based on gear shift state
+                if (bestRPM > 0 && bestConfidence > baseConfidenceThreshold) {
                 
-                    // Apply even stronger smoothing to prevent erratic readings
-                    currentRPM = currentRPM * 0.90 + bestRPM * 0.10; // Very conservative smoothing for stable idle
+                    // Add speed/RPM correlation validation
+                    const currentSpeed = parseFloat(document.getElementById('currentSpeed').textContent) || 0;
+                    const expectedRPM = calculateExpectedRPM(currentSpeed);
+                    const rpmRatio = bestRPM / expectedRPM;
+
+                    // Adaptive RPM validation and smoothing based on gear shift state
+                    const rpmChangeRate = Math.abs(bestRPM - currentRPM) / Math.max(currentRPM, bestRPM, 1);
+
+                    if (gearShiftDetected) {
+                        // During gear shifts, allow larger RPM changes and use faster response
+                        if (rpmRatio < 0.2 || rpmRatio > 4.0) {
+                            currentRPM = currentRPM * 0.92; // Gentle decay for invalid readings
+                        } else {
+                            // Faster response during gear shifts
+                            currentRPM = currentRPM * 0.75 + bestRPM * 0.25;
+                        }
+                    } else {
+                        // Normal operation - stricter validation, slower response
+                        if (rpmRatio < 0.3 || rpmRatio > 3.0) {
+                            currentRPM = currentRPM * 0.95; // Gradually decay invalid readings
+                        } else {
+                            // Conservative smoothing for stable operation
+                            currentRPM = currentRPM * 0.90 + bestRPM * 0.10;
+                        }
+                    }
+
+                    // Update RPM history for gear shift detection
+                    lastValidRPM = bestRPM;
                     document.getElementById('currentRPM').textContent = Math.round(currentRPM);
                 } else {
                     // No confident reading - decay current RPM
@@ -1080,6 +1119,52 @@
             
             // Update at 15 FPS instead of 60 FPS for better performance
             rpmAnimationId = setTimeout(analyzeRPM, 67); // 1000ms / 15fps ≈ 67ms
+        }
+
+        function detectGearShift() {
+            const now = Date.now();
+
+            // Maintain RPM history for gear shift detection (last 3 seconds)
+            rpmHistory.push({ rpm: currentRPM, timestamp: now });
+            rpmHistory = rpmHistory.filter(entry => now - entry.timestamp < 3000);
+
+            // Reset gear shift flag if enough time has passed
+            if (gearShiftDetected && now > gearShiftEndTime) {
+                gearShiftDetected = false;
+            }
+
+            // Only check for gear shifts if we have enough history and current RPM > idle
+            if (rpmHistory.length < 5 || currentRPM < calibration.engine.idleRPM) {
+                return;
+            }
+
+            // Calculate RPM trend over last 1.5 seconds
+            const recentHistory = rpmHistory.filter(entry => now - entry.timestamp < 1500);
+            if (recentHistory.length < 3) return;
+
+            const oldestRPM = recentHistory[0].rpm;
+            const newestRPM = recentHistory[recentHistory.length - 1].rpm;
+            const rpmDrop = oldestRPM - newestRPM;
+            const rpmDropPercent = rpmDrop / Math.max(oldestRPM, 1);
+
+            // Detect gear shift conditions:
+            // 1. Significant RPM drop (>15% and >300 RPM) over short time
+            // 2. Current speed is maintained or increasing (rules out deceleration)
+            const currentSpeed = parseFloat(document.getElementById('currentSpeed').textContent) || 0;
+
+            if (rpmDropPercent > 0.15 && rpmDrop > 300 && currentSpeed > 10) {
+                // Check if speed is stable/increasing (not just braking)
+                const speedElement = document.getElementById('currentSpeed');
+                const previousSpeed = parseFloat(speedElement.getAttribute('data-prev-speed')) || currentSpeed;
+                speedElement.setAttribute('data-prev-speed', currentSpeed);
+
+                // If speed is maintained/increasing during RPM drop, likely gear shift
+                if (currentSpeed >= previousSpeed * 0.95) {
+                    gearShiftDetected = true;
+                    gearShiftEndTime = now + 2000; // Maintain gear shift mode for 2 seconds
+                    console.log(`Gear shift detected: RPM ${oldestRPM} → ${newestRPM} (${(rpmDropPercent*100).toFixed(1)}% drop) at ${currentSpeed} mph`);
+                }
+            }
         }
         
         function stopRPMDetection() {
@@ -1554,55 +1639,33 @@
         function generateCSV(data) {
             if (data.length === 0) return '';
 
-            // CSV headers
+            // CSV headers - configuration/constant fields first, then computed values
             const headers = [
-                'Timestamp', 'ISO_DateTime', 'Relative_Time_ms', 'Speed_mph', 'RPM', 'MPG',
-                'Distance_miles', 'Time_Interval_min', 'Fuel_Used_gal', 'Trip_Distance_miles',
-                'Fuel_Remaining_gal', 'Estimated_Range_miles',
+                // Configuration and engine settings (constant fields)
+                'Engine_Cylinders', 'Engine_Idle_RPM', 'Engine_Redline_RPM', 'RPM_Detection_Enabled',
+                'Highway_Speed_mph', 'Highway_MPG', 'Local_Speed_mph', 'Local_MPG', 'Idle_Consumption_galhr',
+
+                // Timestamp and tracking data
+                'Timestamp', 'ISO_DateTime', 'Relative_Time_ms', 'Time_Interval_min',
+
+                // Raw sensor inputs
+                'GPS_Latitude', 'GPS_Longitude', 'GPS_Accuracy_m',
                 'Accel_X_ms2', 'Accel_Y_ms2', 'Accel_Z_ms2', 'Accel_Magnitude_ms2',
                 'Gyro_X_degs', 'Gyro_Y_degs', 'Gyro_Z_degs',
-                'GPS_Latitude', 'GPS_Longitude', 'GPS_Accuracy_m',
                 'Audio_Dominant_Freq_Hz', 'Audio_Dominant_Amplitude', 'Audio_2nd_Freq_Hz', 'Audio_2nd_Amplitude',
                 'Audio_3rd_Freq_Hz', 'Audio_3rd_Amplitude', 'Audio_4th_Freq_Hz', 'Audio_4th_Amplitude',
-                'Engine_Cylinders', 'Engine_Idle_RPM', 'Engine_Redline_RPM', 'RPM_Detection_Enabled',
-                'Highway_Speed_mph', 'Highway_MPG', 'Local_Speed_mph', 'Local_MPG', 'Idle_Consumption_galhr'
+
+                // Computed values (derived from sensors and settings)
+                'Speed_mph', 'RPM', 'Distance_miles', 'MPG', 'Fuel_Used_gal',
+                'Trip_Distance_miles', 'Fuel_Remaining_gal', 'Estimated_Range_miles'
             ];
 
             let csv = headers.join(',') + '\n';
 
-            // CSV data rows
+            // CSV data rows - reordered to match new header order
             data.forEach(entry => {
                 const row = [
-                    entry.timestamp,
-                    new Date(entry.timestamp).toISOString(),
-                    entry.relativeTime,
-                    entry.speed,
-                    entry.rpm,
-                    entry.mpg,
-                    entry.distance,
-                    entry.timeInterval,
-                    entry.fuelUsed,
-                    entry.tripDistance,
-                    entry.fuelRemaining,
-                    entry.estimatedRange,
-                    entry.acceleration.x,
-                    entry.acceleration.y,
-                    entry.acceleration.z,
-                    entry.acceleration.magnitude,
-                    entry.gyroscope.x,
-                    entry.gyroscope.y,
-                    entry.gyroscope.z,
-                    entry.gps ? entry.gps.latitude : '',
-                    entry.gps ? entry.gps.longitude : '',
-                    entry.gps ? entry.gps.accuracy : '',
-                    entry.audioHarmonics ? entry.audioHarmonics.dominant.frequency : '',
-                    entry.audioHarmonics ? entry.audioHarmonics.dominant.amplitude : '',
-                    entry.audioHarmonics ? entry.audioHarmonics.second.frequency : '',
-                    entry.audioHarmonics ? entry.audioHarmonics.second.amplitude : '',
-                    entry.audioHarmonics ? entry.audioHarmonics.third.frequency : '',
-                    entry.audioHarmonics ? entry.audioHarmonics.third.amplitude : '',
-                    entry.audioHarmonics ? entry.audioHarmonics.fourth.frequency : '',
-                    entry.audioHarmonics ? entry.audioHarmonics.fourth.amplitude : '',
+                    // Configuration and engine settings (constant fields)
                     entry.engineConfig.cylinders,
                     entry.engineConfig.idleRPM,
                     entry.engineConfig.redlineRPM,
@@ -1611,7 +1674,43 @@
                     entry.calibration.highway.mpg,
                     entry.calibration.local.speed,
                     entry.calibration.local.mpg,
-                    entry.calibration.idle.gallonsPerHour
+                    entry.calibration.idle.gallonsPerHour,
+
+                    // Timestamp and tracking data
+                    entry.timestamp,
+                    new Date(entry.timestamp).toISOString(),
+                    entry.relativeTime,
+                    entry.timeInterval,
+
+                    // Raw sensor inputs
+                    entry.gps ? entry.gps.latitude : '',
+                    entry.gps ? entry.gps.longitude : '',
+                    entry.gps ? entry.gps.accuracy : '',
+                    entry.acceleration.x,
+                    entry.acceleration.y,
+                    entry.acceleration.z,
+                    entry.acceleration.magnitude,
+                    entry.gyroscope.x,
+                    entry.gyroscope.y,
+                    entry.gyroscope.z,
+                    entry.audioHarmonics ? entry.audioHarmonics.dominant.frequency : '',
+                    entry.audioHarmonics ? entry.audioHarmonics.dominant.amplitude : '',
+                    entry.audioHarmonics ? entry.audioHarmonics.second.frequency : '',
+                    entry.audioHarmonics ? entry.audioHarmonics.second.amplitude : '',
+                    entry.audioHarmonics ? entry.audioHarmonics.third.frequency : '',
+                    entry.audioHarmonics ? entry.audioHarmonics.third.amplitude : '',
+                    entry.audioHarmonics ? entry.audioHarmonics.fourth.frequency : '',
+                    entry.audioHarmonics ? entry.audioHarmonics.fourth.amplitude : '',
+
+                    // Computed values (derived from sensors and settings)
+                    entry.speed,
+                    entry.rpm,
+                    entry.distance,
+                    entry.mpg,
+                    entry.fuelUsed,
+                    entry.tripDistance,
+                    entry.fuelRemaining,
+                    entry.estimatedRange
                 ];
                 csv += row.join(',') + '\n';
             });
