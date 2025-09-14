@@ -1083,48 +1083,75 @@
             const minBin = Math.max(1, Math.floor(minFreq / binSize));
             const maxBin = Math.min(rpmDataArray.length - 1, Math.floor(maxFreq / binSize));
             
-            // Find dominant peaks in engine frequency range
-            let maxAmplitude = 0;
-            let peakBin = 0;
-            let secondaryPeak = 0;
-            let secondaryBin = 0;
+            // Find multiple peaks in engine frequency range
+            const peaks = [];
             
+            // Find all significant peaks above threshold
             for (let i = minBin; i <= maxBin; i++) {
-                if (rpmDataArray[i] > maxAmplitude) {
-                    // Shift previous peak to secondary
-                    secondaryPeak = maxAmplitude;
-                    secondaryBin = peakBin;
+                if (rpmDataArray[i] > 80) { // Lower threshold for peak detection
+                    // Check if this is a local maximum
+                    const isLocalMax = (i === 0 || rpmDataArray[i] > rpmDataArray[i-1]) &&
+                                      (i === rpmDataArray.length-1 || rpmDataArray[i] > rpmDataArray[i+1]);
                     
-                    maxAmplitude = rpmDataArray[i];
-                    peakBin = i;
-                } else if (rpmDataArray[i] > secondaryPeak) {
-                    secondaryPeak = rpmDataArray[i];
-                    secondaryBin = i;
+                    if (isLocalMax) {
+                        const frequency = i * binSize;
+                        peaks.push({ bin: i, amplitude: rpmDataArray[i], frequency });
+                    }
                 }
             }
             
-            // Calculate RPM from dominant frequency
-            if (maxAmplitude > 50) { // Minimum threshold for valid signal
-                const dominantFreq = peakBin * binSize;
-                let calculatedRPM = 0;
+            // Sort peaks by amplitude (strongest first)
+            peaks.sort((a, b) => b.amplitude - a.amplitude);
+            
+            // Calculate RPM from detected peaks
+            if (peaks.length > 0 && peaks[0].amplitude > 120) { // Higher threshold for valid signal
+                let bestRPM = 0;
+                let bestConfidence = 0;
                 
-                // Try fundamental frequency first (more accurate for lower RPMs)
-                const fundamentalRPM = (dominantFreq * 120) / cylinders;
-                
-                // Try 2nd harmonic (often stronger signal)
-                const harmonicRPM = (dominantFreq * 60) / cylinders;
-                
-                // Choose the RPM that's within reasonable engine range
-                if (fundamentalRPM >= idleRPM * 0.8 && fundamentalRPM <= redlineRPM * 1.2) {
-                    calculatedRPM = fundamentalRPM;
-                } else if (harmonicRPM >= idleRPM * 0.8 && harmonicRPM <= redlineRPM * 1.2) {
-                    calculatedRPM = harmonicRPM;
+                // Smart harmonic analysis - try multiple interpretations of each peak
+                for (const peak of peaks.slice(0, 3)) { // Check top 3 peaks
+                    const freq = peak.frequency;
+                    
+                    // Test different harmonic interpretations
+                    const rpmCandidates = [
+                        { rpm: (freq * 120) / cylinders, harmonic: 1, confidence: peak.amplitude * 0.8 }, // Fundamental
+                        { rpm: (freq * 60) / cylinders, harmonic: 2, confidence: peak.amplitude * 1.2 },  // 2nd harmonic (often strongest)
+                        { rpm: (freq * 40) / cylinders, harmonic: 3, confidence: peak.amplitude * 0.9 },  // 3rd harmonic
+                        { rpm: (freq * 30) / cylinders, harmonic: 4, confidence: peak.amplitude * 0.7 }   // 4th harmonic
+                    ];
+                    
+                    for (const candidate of rpmCandidates) {
+                        // Check if RPM is within reasonable engine range
+                        if (candidate.rpm >= idleRPM * 0.7 && candidate.rpm <= redlineRPM * 1.3) {
+                            // Boost confidence for readings near expected idle
+                            let adjustedConfidence = candidate.confidence;
+                            if (candidate.rpm >= idleRPM * 0.8 && candidate.rpm <= idleRPM * 1.5) {
+                                adjustedConfidence *= 1.5; // Favor idle range readings
+                            }
+                            
+                            if (adjustedConfidence > bestConfidence) {
+                                bestRPM = candidate.rpm;
+                                bestConfidence = adjustedConfidence;
+                            }
+                        }
+                    }
                 }
                 
-                // Apply smoothing to prevent erratic readings
-                if (calculatedRPM > 0) {
-                    currentRPM = currentRPM * 0.7 + calculatedRPM * 0.3;
+                // Apply additional validation
+                if (bestRPM > 0 && bestConfidence > 150) { // Require high confidence
+                
+                    // Apply stronger smoothing to prevent erratic readings
+                    currentRPM = currentRPM * 0.85 + bestRPM * 0.15; // More conservative smoothing
                     document.getElementById('currentRPM').textContent = Math.round(currentRPM);
+                } else {
+                    // No confident reading - decay current RPM
+                    if (currentRPM > idleRPM * 0.5) {
+                        currentRPM = currentRPM * 0.92; // Gradual decay
+                        document.getElementById('currentRPM').textContent = Math.round(currentRPM);
+                    } else {
+                        currentRPM = 0;
+                        document.getElementById('currentRPM').textContent = '--';
+                    }
                 }
             } else {
                 // No strong signal - possibly idle or engine off
