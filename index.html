@@ -301,10 +301,38 @@
             <button id="pauseBtn" onclick="togglePause()" disabled>Pause</button>
             <button onclick="resetTrip()">Reset Trip</button>
             <button onclick="refillTank()">Refill Tank</button>
+            <button id="dataLogBtn" onclick="toggleDataLogging()">Start Data Log</button>
+            <button onclick="exportDataLog()">Export Log</button>
+            <button onclick="clearDataLog()">Clear Log</button>
         </div>
         
         <div class="status" id="status">
             GPS tracking not started. Click "Start Tracking" to begin.
+        </div>
+
+        <!-- Data Logging Status -->
+        <div class="calibration" id="dataLogStatus" style="display: none;">
+            <h3>📊 Data Logging Status</h3>
+            <div class="gps-info">
+                <div class="info-item">
+                    <div class="metric-label">Log Entries</div>
+                    <div class="info-value" id="logEntries">0</div>
+                </div>
+                <div class="info-item">
+                    <div class="metric-label">Session Duration</div>
+                    <div class="info-value" id="logDuration">0:00</div>
+                </div>
+                <div class="info-item">
+                    <div class="metric-label">Data Rate</div>
+                    <div class="info-value" id="dataRate">0</div>
+                    <div class="metric-label">entries/min</div>
+                </div>
+                <div class="info-item">
+                    <div class="metric-label">Log Size</div>
+                    <div class="info-value" id="logSize">0</div>
+                    <div class="metric-label">KB</div>
+                </div>
+            </div>
         </div>
         
         <div class="calibration">
@@ -507,6 +535,12 @@
         let fuelUsed = 0;
         let tripDistance = 0;
         let tankCapacity = 4.5;
+
+        // Data logging system
+        let dataLog = [];
+        let isLogging = false;
+        let logStartTime = null;
+        let maxLogEntries = 10000; // Limit to prevent memory issues
         
         // RPM Detection variables
         let rpmAudioContext = null;
@@ -824,7 +858,7 @@
         function updateMetrics(speed, timeMinutes, distance) {
             // Update current readings
             document.getElementById('currentSpeed').textContent = Math.round(speed);
-            
+
             // Calculate MPG considering RPM if available
             let currentMPG;
             if (currentRPM > 0 && calibration.engine.enableRPM) {
@@ -838,27 +872,32 @@
             } else {
                 currentMPG = interpolateMPG(speed);
             }
-            
+
             document.getElementById('currentMPG').textContent = currentMPG.toFixed(1);
-            
+
             // Only calculate fuel consumption and distance if not paused
             if (!isPaused) {
                 const fuelConsumed = calculateFuelConsumption(speed, timeMinutes, currentRPM);
                 fuelUsed += fuelConsumed;
                 tripDistance += distance;
             }
-            
+
+            // Log data if logging is enabled
+            if (isLogging) {
+                logDataPoint(speed, currentMPG, distance, timeMinutes);
+            }
+
             // Update displays
             document.getElementById('fuelUsed').textContent = fuelUsed.toFixed(3);
-            
+
             const fuelRemaining = Math.max(0, tankCapacity - fuelUsed);
             document.getElementById('fuelRemaining').textContent = fuelRemaining.toFixed(2);
-            
+
             // Estimate range based on current MPG
             const estimatedRange = fuelRemaining * currentMPG;
-            document.getElementById('estimatedRange').textContent = 
+            document.getElementById('estimatedRange').textContent =
                 estimatedRange > 0 ? Math.round(estimatedRange) : '0';
-            
+
             document.getElementById('tripDistance').textContent = tripDistance.toFixed(1);
         }
         
@@ -1313,6 +1352,251 @@
             document.getElementById('accelMagnitude').textContent = '0.0';
             document.getElementById('accelArrow').setAttribute('x2', '0');
             document.getElementById('accelArrow').setAttribute('y2', '0');
+        }
+
+        // Data Logging System Functions
+        function toggleDataLogging() {
+            const logBtn = document.getElementById('dataLogBtn');
+
+            if (!isLogging) {
+                startDataLogging();
+                logBtn.textContent = 'Stop Data Log';
+                logBtn.style.background = 'rgba(255, 100, 100, 0.7)';
+            } else {
+                stopDataLogging();
+                logBtn.textContent = 'Start Data Log';
+                logBtn.style.background = '';
+            }
+        }
+
+        function startDataLogging() {
+            isLogging = true;
+            logStartTime = Date.now();
+            dataLog = [];
+
+            document.getElementById('dataLogStatus').style.display = 'block';
+            updateLogStatus();
+
+            // Start periodic log status updates
+            if (window.logStatusInterval) clearInterval(window.logStatusInterval);
+            window.logStatusInterval = setInterval(updateLogStatus, 2000);
+        }
+
+        function stopDataLogging() {
+            isLogging = false;
+
+            if (window.logStatusInterval) {
+                clearInterval(window.logStatusInterval);
+                window.logStatusInterval = null;
+            }
+
+            // Final status update
+            updateLogStatus();
+        }
+
+        function logDataPoint(speed, mpg, distance, timeMinutes) {
+            // Prevent memory overflow
+            if (dataLog.length >= maxLogEntries) {
+                dataLog.shift(); // Remove oldest entry
+            }
+
+            const timestamp = Date.now();
+            const logEntry = {
+                timestamp: timestamp,
+                relativeTime: logStartTime ? timestamp - logStartTime : 0,
+                speed: Math.round(speed * 100) / 100,
+                rpm: currentRPM || 0,
+                mpg: Math.round(mpg * 100) / 100,
+                distance: Math.round(distance * 10000) / 10000,
+                timeInterval: Math.round(timeMinutes * 1000) / 1000,
+                fuelUsed: Math.round(fuelUsed * 1000) / 1000,
+                tripDistance: Math.round(tripDistance * 100) / 100,
+                fuelRemaining: Math.round((tankCapacity - fuelUsed) * 100) / 100,
+                estimatedRange: Math.round((tankCapacity - fuelUsed) * mpg),
+                acceleration: {
+                    x: Math.round(currentAccel.x * 100) / 100,
+                    y: Math.round(currentAccel.y * 100) / 100,
+                    z: Math.round(currentAccel.z * 100) / 100,
+                    magnitude: Math.round(Math.sqrt(currentAccel.x*currentAccel.x + currentAccel.y*currentAccel.y + currentAccel.z*currentAccel.z) * 100) / 100
+                },
+                gyroscope: {
+                    x: Math.round(currentGyro.x * 100) / 100,
+                    y: Math.round(currentGyro.y * 100) / 100,
+                    z: Math.round(currentGyro.z * 100) / 100
+                },
+                gps: lastPosition ? {
+                    latitude: Math.round(lastPosition.lat * 1000000) / 1000000,
+                    longitude: Math.round(lastPosition.lon * 1000000) / 1000000,
+                    accuracy: Math.round(lastPosition.accuracy * 10) / 10
+                } : null,
+                engineConfig: {
+                    cylinders: calibration.engine.cylinders,
+                    idleRPM: calibration.engine.idleRPM,
+                    redlineRPM: calibration.engine.redlineRPM,
+                    enableRPM: calibration.engine.enableRPM
+                },
+                calibration: {
+                    highway: calibration.highway,
+                    local: calibration.local,
+                    idle: calibration.idle
+                }
+            };
+
+            dataLog.push(logEntry);
+        }
+
+        function updateLogStatus() {
+            if (!isLogging && !dataLog.length) return;
+
+            document.getElementById('logEntries').textContent = dataLog.length;
+
+            // Calculate session duration
+            const duration = logStartTime ? Date.now() - logStartTime : 0;
+            const minutes = Math.floor(duration / 60000);
+            const seconds = Math.floor((duration % 60000) / 1000);
+            document.getElementById('logDuration').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+            // Calculate data rate (entries per minute)
+            const dataRate = duration > 0 ? Math.round((dataLog.length / duration) * 60000 * 10) / 10 : 0;
+            document.getElementById('dataRate').textContent = dataRate;
+
+            // Estimate log size in KB
+            const logSizeBytes = JSON.stringify(dataLog).length;
+            const logSizeKB = Math.round(logSizeBytes / 1024 * 10) / 10;
+            document.getElementById('logSize').textContent = logSizeKB;
+        }
+
+        function exportDataLog() {
+            if (dataLog.length === 0) {
+                alert('No data to export. Start logging first.');
+                return;
+            }
+
+            // Create comprehensive export data
+            const exportData = {
+                metadata: {
+                    exportDate: new Date().toISOString(),
+                    appVersion: '2.1.0',
+                    logStartTime: logStartTime ? new Date(logStartTime).toISOString() : null,
+                    logEndTime: dataLog.length > 0 ? new Date(dataLog[dataLog.length - 1].timestamp).toISOString() : null,
+                    totalEntries: dataLog.length,
+                    sessionDuration: logStartTime ? Date.now() - logStartTime : 0,
+                    vehicle: 'Motorcycle',
+                    dataFields: [
+                        'timestamp', 'relativeTime', 'speed', 'rpm', 'mpg', 'distance',
+                        'timeInterval', 'fuelUsed', 'tripDistance', 'fuelRemaining',
+                        'estimatedRange', 'acceleration', 'gyroscope', 'gps',
+                        'engineConfig', 'calibration'
+                    ]
+                },
+                data: dataLog
+            };
+
+            // Create CSV export as well
+            const csvData = generateCSV(dataLog);
+
+            // Create and download JSON file
+            const jsonBlob = new Blob([JSON.stringify(exportData, null, 2)], {
+                type: 'application/json'
+            });
+            const jsonUrl = URL.createObjectURL(jsonBlob);
+            const jsonLink = document.createElement('a');
+            jsonLink.href = jsonUrl;
+            jsonLink.download = `motorcycle-fuel-log-${new Date().toISOString().split('T')[0]}.json`;
+            jsonLink.click();
+            URL.revokeObjectURL(jsonUrl);
+
+            // Create and download CSV file
+            const csvBlob = new Blob([csvData], {
+                type: 'text/csv'
+            });
+            const csvUrl = URL.createObjectURL(csvBlob);
+            const csvLink = document.createElement('a');
+            csvLink.href = csvUrl;
+            csvLink.download = `motorcycle-fuel-log-${new Date().toISOString().split('T')[0]}.csv`;
+            csvLink.click();
+            URL.revokeObjectURL(csvUrl);
+
+            alert(`Data exported successfully!\n\nJSON: ${dataLog.length} entries\nCSV: ${dataLog.length} entries\n\nBoth files have been downloaded.`);
+        }
+
+        function generateCSV(data) {
+            if (data.length === 0) return '';
+
+            // CSV headers
+            const headers = [
+                'Timestamp', 'ISO_DateTime', 'Relative_Time_ms', 'Speed_mph', 'RPM', 'MPG',
+                'Distance_miles', 'Time_Interval_min', 'Fuel_Used_gal', 'Trip_Distance_miles',
+                'Fuel_Remaining_gal', 'Estimated_Range_miles',
+                'Accel_X_ms2', 'Accel_Y_ms2', 'Accel_Z_ms2', 'Accel_Magnitude_ms2',
+                'Gyro_X_degs', 'Gyro_Y_degs', 'Gyro_Z_degs',
+                'GPS_Latitude', 'GPS_Longitude', 'GPS_Accuracy_m',
+                'Engine_Cylinders', 'Engine_Idle_RPM', 'Engine_Redline_RPM', 'RPM_Detection_Enabled',
+                'Highway_Speed_mph', 'Highway_MPG', 'Local_Speed_mph', 'Local_MPG', 'Idle_Consumption_galhr'
+            ];
+
+            let csv = headers.join(',') + '\n';
+
+            // CSV data rows
+            data.forEach(entry => {
+                const row = [
+                    entry.timestamp,
+                    new Date(entry.timestamp).toISOString(),
+                    entry.relativeTime,
+                    entry.speed,
+                    entry.rpm,
+                    entry.mpg,
+                    entry.distance,
+                    entry.timeInterval,
+                    entry.fuelUsed,
+                    entry.tripDistance,
+                    entry.fuelRemaining,
+                    entry.estimatedRange,
+                    entry.acceleration.x,
+                    entry.acceleration.y,
+                    entry.acceleration.z,
+                    entry.acceleration.magnitude,
+                    entry.gyroscope.x,
+                    entry.gyroscope.y,
+                    entry.gyroscope.z,
+                    entry.gps ? entry.gps.latitude : '',
+                    entry.gps ? entry.gps.longitude : '',
+                    entry.gps ? entry.gps.accuracy : '',
+                    entry.engineConfig.cylinders,
+                    entry.engineConfig.idleRPM,
+                    entry.engineConfig.redlineRPM,
+                    entry.engineConfig.enableRPM,
+                    entry.calibration.highway.speed,
+                    entry.calibration.highway.mpg,
+                    entry.calibration.local.speed,
+                    entry.calibration.local.mpg,
+                    entry.calibration.idle.gallonsPerHour
+                ];
+                csv += row.join(',') + '\n';
+            });
+
+            return csv;
+        }
+
+        function clearDataLog() {
+            if (dataLog.length === 0) {
+                alert('No data to clear.');
+                return;
+            }
+
+            if (confirm(`Clear ${dataLog.length} log entries?\n\nThis cannot be undone.`)) {
+                dataLog = [];
+                logStartTime = null;
+
+                if (isLogging) {
+                    stopDataLogging();
+                    document.getElementById('dataLogBtn').textContent = 'Start Data Log';
+                    document.getElementById('dataLogBtn').style.background = '';
+                }
+
+                document.getElementById('dataLogStatus').style.display = 'none';
+                alert('Data log cleared successfully.');
+            }
         }
     </script>
 </body>
