@@ -239,7 +239,7 @@
                 <div class="metric-label">RPM</div>
             </div>
             
-            <div class="metric-card">
+            <div class="metric-card" style="display: none;">
                 <div class="metric-label">Estimated MPG</div>
                 <div class="metric-value" id="currentMPG">--</div>
                 <div class="metric-label">Miles/Gallon</div>
@@ -257,18 +257,70 @@
                 <div class="metric-label">Gallons</div>
             </div>
             
-            <div class="metric-card">
+            <div class="metric-card" style="display: none;">
                 <div class="metric-label">Estimated Range</div>
                 <div class="metric-value" id="estimatedRange">--</div>
                 <div class="metric-label">Miles</div>
             </div>
             
-            <div class="metric-card">
+            <div class="metric-card" style="display: none;">
                 <div class="metric-label">Trip Distance</div>
                 <div class="metric-value" id="tripDistance">0.0</div>
                 <div class="metric-label">Miles</div>
             </div>
-            
+
+            <div class="metric-card">
+                <div class="metric-label">Roll Angle</div>
+                <div class="metric-value" style="height: 120px; display: flex; align-items: center; justify-content: center;">
+                    <svg id="rollHorizon" width="100" height="100" viewBox="-50 -50 100 100" style="background: linear-gradient(to bottom, #87CEEB 0%, #87CEEB 50%, #8B4513 50%, #8B4513 100%); border-radius: 50%; border: 2px solid rgba(255,255,255,0.3);">
+                        <!-- Fixed aircraft symbol (center) -->
+                        <g id="aircraftSymbol">
+                            <!-- Main body -->
+                            <line x1="-20" y1="0" x2="20" y2="0" stroke="yellow" stroke-width="3" stroke-linecap="round"/>
+                            <!-- Wings -->
+                            <line x1="-15" y1="-8" x2="-15" y2="8" stroke="yellow" stroke-width="2" stroke-linecap="round"/>
+                            <line x1="15" y1="-8" x2="15" y2="8" stroke="yellow" stroke-width="2" stroke-linecap="round"/>
+                            <!-- Center dot -->
+                            <circle cx="0" cy="0" r="2" fill="yellow"/>
+                        </g>
+
+                        <!-- Rotating horizon line -->
+                        <g id="horizonLine">
+                            <line x1="-45" y1="0" x2="45" y2="0" stroke="white" stroke-width="2"/>
+                            <!-- Horizon tick marks -->
+                            <line x1="-35" y1="-3" x2="-35" y2="3" stroke="white" stroke-width="1"/>
+                            <line x1="-25" y1="-2" x2="-25" y2="2" stroke="white" stroke-width="1"/>
+                            <line x1="-15" y1="-3" x2="-15" y2="3" stroke="white" stroke-width="1"/>
+                            <line x1="15" y1="-3" x2="15" y2="3" stroke="white" stroke-width="1"/>
+                            <line x1="25" y1="-2" x2="25" y2="2" stroke="white" stroke-width="1"/>
+                            <line x1="35" y1="-3" x2="35" y2="3" stroke="white" stroke-width="1"/>
+                        </g>
+
+                        <!-- Roll angle markings (fixed) -->
+                        <g id="rollMarkings" stroke="white" stroke-width="1" fill="white" font-size="8" text-anchor="middle">
+                            <!-- 30 degree marks -->
+                            <line x1="-21.65" y1="-37.5" x2="-18.66" y2="-32.32" stroke-width="2"/>
+                            <line x1="21.65" y1="-37.5" x2="18.66" y2="-32.32" stroke-width="2"/>
+                            <!-- 45 degree marks -->
+                            <line x1="-31.82" y1="-31.82" x2="-28.28" y2="-28.28"/>
+                            <line x1="31.82" y1="-31.82" x2="28.28" y2="-28.28"/>
+                            <!-- 60 degree marks -->
+                            <line x1="-37.5" y1="-21.65" x2="-32.32" y2="-18.66" stroke-width="2"/>
+                            <line x1="37.5" y1="-21.65" x2="32.32" y2="-18.66" stroke-width="2"/>
+                        </g>
+                    </svg>
+                </div>
+                <div class="metric-label">
+                    <span id="rollAngle">0°</span> Roll
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">Lateral G-Force</div>
+                <div class="metric-value" id="lateralGForce">0.0</div>
+                <div class="metric-label">G</div>
+            </div>
+
             <div class="metric-card">
                 <div class="metric-label">3D Acceleration Vector</div>
                 <div class="metric-value" style="height: 120px; display: flex; align-items: center; justify-content: center;">
@@ -403,7 +455,7 @@
 
     <!-- Version Footer -->
     <div style="text-align: center; padding: 20px; opacity: 0.7; font-size: 0.8em; color: white;">
-        v2.3.0 • Audio FFT Edition
+        v2.4.0 • Cornering Analytics Edition
     </div>
 
     <!-- PWA Install Banner -->
@@ -1193,6 +1245,8 @@
         let motionEnabled = false;
         let currentAccel = { x: 0, y: 0, z: 0 };
         let currentGyro = { x: 0, y: 0, z: 0 };
+        let currentRollAngle = 0;
+        let currentLateralG = 0;
         let motionAnimationId = null;
         
         function startMotionDetection() {
@@ -1344,6 +1398,21 @@
             // Calculate magnitude and individual components
             const magnitude = Math.sqrt(x*x + y*y + z*z);
 
+            // Calculate roll angle from accelerometer data
+            // Roll is rotation around the Y-axis (forward/back axis of motorcycle)
+            // Using atan2 for proper quadrant handling
+            const rollAngleRad = Math.atan2(x, Math.sqrt(y*y + z*z));
+            currentRollAngle = rollAngleRad * (180 / Math.PI); // Convert to degrees
+
+            // Calculate lateral G-force (sideways acceleration in G units)
+            // X-axis represents left/right acceleration relative to motorcycle
+            // Convert from m/s² to G (1G = 9.81 m/s²)
+            currentLateralG = x / 9.81;
+
+            // Update displays
+            updateRollDisplay(currentRollAngle);
+            updateLateralGDisplay(currentLateralG);
+
             // Update text displays with proper precision
             document.getElementById('accelMagnitude').textContent = magnitude.toFixed(1);
             document.getElementById('accelXValue').textContent = x.toFixed(1);
@@ -1421,7 +1490,61 @@
             // Continue updates at 15fps to match RPM detection
             motionAnimationId = setTimeout(updateAccelerationVector, 67);
         }
-        
+
+        function updateRollDisplay(rollAngle) {
+            // Smooth the roll angle to reduce jitter
+            const smoothedAngle = currentRollAngle * 0.85 + rollAngle * 0.15;
+            currentRollAngle = smoothedAngle;
+
+            // Update text display
+            document.getElementById('rollAngle').textContent = Math.round(smoothedAngle) + '°';
+
+            // Update artificial horizon
+            const horizonLine = document.getElementById('horizonLine');
+            if (horizonLine) {
+                // Rotate the horizon line opposite to the roll angle
+                // (aircraft symbol stays fixed, horizon rotates)
+                horizonLine.setAttribute('transform', `rotate(${-smoothedAngle})`);
+            }
+
+            // Color coding based on lean angle severity
+            const rollText = document.getElementById('rollAngle');
+            const absAngle = Math.abs(smoothedAngle);
+
+            if (absAngle < 15) {
+                rollText.style.color = '#00ff00'; // Green - upright
+            } else if (absAngle < 30) {
+                rollText.style.color = '#ffff00'; // Yellow - moderate lean
+            } else if (absAngle < 45) {
+                rollText.style.color = '#ff8800'; // Orange - significant lean
+            } else {
+                rollText.style.color = '#ff0000'; // Red - extreme lean
+            }
+        }
+
+        function updateLateralGDisplay(lateralG) {
+            // Smooth the G-force reading to reduce jitter
+            const smoothedG = currentLateralG * 0.85 + lateralG * 0.15;
+            currentLateralG = smoothedG;
+
+            // Update display with 1 decimal precision
+            document.getElementById('lateralGForce').textContent = Math.abs(smoothedG).toFixed(1);
+
+            // Color coding based on G-force intensity (using absolute value)
+            const gForceElement = document.getElementById('lateralGForce');
+            const absG = Math.abs(smoothedG);
+
+            if (absG < 0.3) {
+                gForceElement.style.color = '#00ff00'; // Green - gentle cornering
+            } else if (absG < 0.6) {
+                gForceElement.style.color = '#ffff00'; // Yellow - moderate cornering
+            } else if (absG < 1.0) {
+                gForceElement.style.color = '#ff8800'; // Orange - aggressive cornering
+            } else {
+                gForceElement.style.color = '#ff0000'; // Red - extreme cornering
+            }
+        }
+
         function stopMotionDetection() {
             motionEnabled = false;
             if (motionAnimationId) {
@@ -1450,6 +1573,20 @@
             document.getElementById('accelY').setAttribute('y2', '0');
             document.getElementById('accelZ').setAttribute('x2', '0');
             document.getElementById('accelZ').setAttribute('y2', '0');
+
+            // Reset roll display
+            currentRollAngle = 0;
+            document.getElementById('rollAngle').textContent = '0°';
+            document.getElementById('rollAngle').style.color = '#00ff00';
+            const horizonLine = document.getElementById('horizonLine');
+            if (horizonLine) {
+                horizonLine.setAttribute('transform', 'rotate(0)');
+            }
+
+            // Reset lateral G-force display
+            currentLateralG = 0;
+            document.getElementById('lateralGForce').textContent = '0.0';
+            document.getElementById('lateralGForce').style.color = '#00ff00';
         }
 
         // Data Logging System Functions
@@ -1592,7 +1729,7 @@
             const exportData = {
                 metadata: {
                     exportDate: new Date().toISOString(),
-                    appVersion: '2.3.0',
+                    appVersion: '2.4.0',
                     logStartTime: logStartTime ? new Date(logStartTime).toISOString() : null,
                     logEndTime: dataLog.length > 0 ? new Date(dataLog[dataLog.length - 1].timestamp).toISOString() : null,
                     totalEntries: dataLog.length,
