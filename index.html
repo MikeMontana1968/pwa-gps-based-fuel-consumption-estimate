@@ -270,27 +270,41 @@
             </div>
             
             <div class="metric-card">
-                <div class="metric-label">Acceleration</div>
-                <div class="metric-value" style="height: 100px; display: flex; align-items: center; justify-content: center;">
-                    <svg id="accelVector" width="80" height="80" viewBox="-40 -40 80 80" style="background: rgba(255,255,255,0.1); border-radius: 50%;">
-                        <!-- 3D coordinate system -->
-                        <line x1="-30" y1="0" x2="30" y2="0" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
-                        <line x1="0" y1="-30" x2="0" y2="30" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
-                        <circle cx="0" cy="0" r="2" fill="rgba(255,255,255,0.5)"/>
-                        
-                        <!-- Acceleration vector arrow -->
-                        <line id="accelArrow" x1="0" y1="0" x2="0" y2="0" stroke="#00ff00" stroke-width="3" marker-end="url(#arrowhead)"/>
-                        
-                        <!-- Arrow marker -->
-                        <defs>
-                            <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-                                <polygon points="0 0, 8 3, 0 6" fill="#00ff00"/>
-                            </marker>
-                        </defs>
+                <div class="metric-label">3D Acceleration Vector</div>
+                <div class="metric-value" style="height: 120px; display: flex; align-items: center; justify-content: center;">
+                    <svg id="accelVector" width="100" height="100" viewBox="-50 -50 100 100" style="background: rgba(255,255,255,0.1); border-radius: 50%;">
+                        <!-- 3D coordinate system with labels -->
+                        <!-- X-axis (left-right) -->
+                        <line x1="-40" y1="0" x2="40" y2="0" stroke="rgba(255,100,100,0.6)" stroke-width="2"/>
+                        <text x="35" y="-5" fill="rgba(255,100,100,0.8)" font-size="10" font-weight="bold">X</text>
+
+                        <!-- Y-axis (forward-back, adjusted for device orientation) -->
+                        <line x1="0" y1="-40" x2="0" y2="40" stroke="rgba(100,255,100,0.6)" stroke-width="2"/>
+                        <text x="5" y="-35" fill="rgba(100,255,100,0.8)" font-size="10" font-weight="bold">Y</text>
+
+                        <!-- Z-axis representation (diagonal perspective) -->
+                        <line x1="-20" y1="20" x2="20" y2="-20" stroke="rgba(100,100,255,0.6)" stroke-width="2"/>
+                        <text x="15" y="-25" fill="rgba(100,100,255,0.8)" font-size="10" font-weight="bold">Z</text>
+
+                        <!-- Center point -->
+                        <circle cx="0" cy="0" r="3" fill="rgba(255,255,255,0.7)"/>
+
+                        <!-- Main acceleration vector (simple line, no arrowhead) -->
+                        <line id="accelArrow" x1="0" y1="0" x2="0" y2="0" stroke="#ffff00" stroke-width="3" stroke-linecap="round"/>
+
+                        <!-- Component vectors -->
+                        <line id="accelX" x1="0" y1="0" x2="0" y2="0" stroke="rgba(255,100,100,0.7)" stroke-width="2" stroke-dasharray="3,2" stroke-linecap="round"/>
+                        <line id="accelY" x1="0" y1="0" x2="0" y2="0" stroke="rgba(100,255,100,0.7)" stroke-width="2" stroke-dasharray="3,2" stroke-linecap="round"/>
+                        <line id="accelZ" x1="0" y1="0" x2="0" y2="0" stroke="rgba(100,100,255,0.7)" stroke-width="2" stroke-dasharray="3,2" stroke-linecap="round"/>
                     </svg>
                 </div>
                 <div class="metric-label">
-                    <span id="accelMagnitude">0.0</span> m/s²
+                    <div style="font-size: 0.8em; line-height: 1.2;">
+                        <div><span id="accelMagnitude">0.0</span> m/s² total</div>
+                        <div style="color: rgba(255,100,100,0.9);">X: <span id="accelXValue">0.0</span></div>
+                        <div style="color: rgba(100,255,100,0.9);">Y: <span id="accelYValue">0.0</span></div>
+                        <div style="color: rgba(100,100,255,0.9);">Z: <span id="accelZValue">0.0</span></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1267,76 +1281,228 @@
         let motionAnimationId = null;
         
         function startMotionDetection() {
-            if ('DeviceMotionEvent' in window) {
+            // Enhanced error handling and fallback behavior
+            if (!('DeviceMotionEvent' in window)) {
+                console.log('DeviceMotionEvent not supported - using fallback simulation');
+                enableMotionFallback();
+                return;
+            }
+
+            try {
                 if (typeof DeviceMotionEvent.requestPermission === 'function') {
-                    // iOS 13+ permission request
+                    // iOS 13+ permission request with enhanced error handling
                     DeviceMotionEvent.requestPermission()
                         .then(permission => {
                             if (permission === 'granted') {
                                 enableMotionListeners();
                             } else {
-                                console.log('Motion permission denied');
+                                console.log('Motion permission denied - using limited functionality');
+                                showMotionPermissionMessage();
                             }
                         })
-                        .catch(console.error);
+                        .catch(error => {
+                            console.error('Motion permission request failed:', error);
+                            enableMotionFallback();
+                        });
                 } else {
-                    // Android and older iOS
+                    // Android and older iOS with error handling
                     enableMotionListeners();
                 }
-            } else {
-                console.log('DeviceMotionEvent not supported');
+            } catch (error) {
+                console.error('Motion detection initialization failed:', error);
+                enableMotionFallback();
             }
+        }
+
+        function showMotionPermissionMessage() {
+            // Show user-friendly message about motion permission
+            document.getElementById('accelMagnitude').textContent = '--';
+            document.getElementById('accelXValue').textContent = '--';
+            document.getElementById('accelYValue').textContent = '--';
+            document.getElementById('accelZValue').textContent = '--';
+
+            // Add a subtle visual indicator
+            const arrow = document.getElementById('accelArrow');
+            arrow.setAttribute('stroke', '#888888');
+            arrow.setAttribute('stroke-dasharray', '5,5');
+        }
+
+        function enableMotionFallback() {
+            // Provide basic fallback when motion detection fails
+            motionEnabled = false;
+            console.log('Using motion detection fallback');
+
+            // Show placeholder values
+            document.getElementById('accelMagnitude').textContent = '0.0';
+            document.getElementById('accelXValue').textContent = '0.0';
+            document.getElementById('accelYValue').textContent = '0.0';
+            document.getElementById('accelZValue').textContent = '0.0';
         }
         
         function enableMotionListeners() {
             motionEnabled = true;
-            
-            window.addEventListener('devicemotion', (event) => {
-                if (event.acceleration) {
-                    currentAccel.x = event.acceleration.x || 0;
-                    currentAccel.y = event.acceleration.y || 0;
-                    currentAccel.z = event.acceleration.z || 0;
+
+            // Enhanced motion event listener with validation
+            const motionHandler = (event) => {
+                try {
+                    // Validate and sanitize acceleration data
+                    if (event.acceleration) {
+                        const accelX = event.acceleration.x;
+                        const accelY = event.acceleration.y;
+                        const accelZ = event.acceleration.z;
+
+                        // Filter out null/undefined values and extreme outliers
+                        currentAccel.x = (accelX !== null && !isNaN(accelX) && Math.abs(accelX) < 50) ? accelX : currentAccel.x;
+                        currentAccel.y = (accelY !== null && !isNaN(accelY) && Math.abs(accelY) < 50) ? accelY : currentAccel.y;
+                        currentAccel.z = (accelZ !== null && !isNaN(accelZ) && Math.abs(accelZ) < 50) ? accelZ : currentAccel.z;
+                    }
+
+                    // Validate and sanitize rotation data
+                    if (event.rotationRate) {
+                        const gyroX = event.rotationRate.alpha;
+                        const gyroY = event.rotationRate.beta;
+                        const gyroZ = event.rotationRate.gamma;
+
+                        // Filter out null/undefined values and extreme outliers
+                        currentGyro.x = (gyroX !== null && !isNaN(gyroX) && Math.abs(gyroX) < 360) ? gyroX : currentGyro.x;
+                        currentGyro.y = (gyroY !== null && !isNaN(gyroY) && Math.abs(gyroY) < 360) ? gyroY : currentGyro.y;
+                        currentGyro.z = (gyroZ !== null && !isNaN(gyroZ) && Math.abs(gyroZ) < 360) ? gyroZ : currentGyro.z;
+                    }
+                } catch (error) {
+                    console.warn('Motion data processing error:', error);
+                    // Continue with existing values rather than crashing
                 }
-                
-                if (event.rotationRate) {
-                    currentGyro.x = event.rotationRate.alpha || 0;
-                    currentGyro.y = event.rotationRate.beta || 0;
-                    currentGyro.z = event.rotationRate.gamma || 0;
-                }
-            });
-            
+            };
+
+            // Add motion event listener with error handling
+            try {
+                window.addEventListener('devicemotion', motionHandler, { passive: true });
+
+                // Timeout check to ensure motion detection is working
+                let motionCheckTimeout = setTimeout(() => {
+                    const totalAccel = Math.abs(currentAccel.x) + Math.abs(currentAccel.y) + Math.abs(currentAccel.z);
+                    if (totalAccel === 0) {
+                        console.warn('No motion data received - device may not support motion events');
+                        showMotionPermissionMessage();
+                    }
+                }, 3000);
+
+                // Clear timeout when we get first motion data
+                const firstMotionHandler = () => {
+                    clearTimeout(motionCheckTimeout);
+                    window.removeEventListener('devicemotion', firstMotionHandler);
+                };
+                window.addEventListener('devicemotion', firstMotionHandler, { once: true, passive: true });
+
+            } catch (error) {
+                console.error('Failed to add motion event listeners:', error);
+                enableMotionFallback();
+                return;
+            }
+
             // Start 3D vector visualization updates
             updateAccelerationVector();
         }
         
         function updateAccelerationVector() {
             if (!motionEnabled) return;
-            
-            const { x, y, z } = currentAccel;
-            
-            // Calculate magnitude
+
+            // Get raw acceleration data
+            let { x, y, z } = currentAccel;
+
+            // Adjust coordinate system for motorcycle context
+            // X: Left(-) to Right(+) when riding
+            // Y: Back(-) to Forward(+) when riding
+            // Z: Down(-) to Up(+) when riding
+
+            // Apply device orientation correction for landscape use
+            if (screen.orientation && screen.orientation.angle) {
+                const angle = screen.orientation.angle;
+                if (angle === 90 || angle === 270) {
+                    // Landscape mode - swap and adjust coordinates
+                    const tempX = x;
+                    x = angle === 90 ? -y : y;
+                    y = angle === 90 ? tempX : -tempX;
+                }
+            }
+
+            // Calculate magnitude and individual components
             const magnitude = Math.sqrt(x*x + y*y + z*z);
+
+            // Update text displays with proper precision
             document.getElementById('accelMagnitude').textContent = magnitude.toFixed(1);
-            
-            // Project 3D vector to 2D display (top-down view)
-            // Scale and limit to viewport
-            const scale = Math.min(25, magnitude * 5); // Max 25px length
-            const vectorX = x * scale;
-            const vectorY = y * scale;
-            
-            // Update SVG arrow
+            document.getElementById('accelXValue').textContent = x.toFixed(1);
+            document.getElementById('accelYValue').textContent = y.toFixed(1);
+            document.getElementById('accelZValue').textContent = z.toFixed(1);
+
+            // Scaling optimized for road vehicle G-forces (0.1g to 1.5g typical range)
+            const maxDisplayLength = 40; // Maximum line length in SVG units
+            const sensitivityThreshold = 0.1; // Show even gentle accelerations (0.1g)
+            const roadVehicleScale = 30; // Scale factor optimized for typical road forces
+
+            // Linear scaling appropriate for road vehicle dynamics
+            const getScaledValue = (value) => {
+                if (Math.abs(value) < sensitivityThreshold) return 0;
+
+                // Direct linear scaling - length proportional to G-force
+                // 1g = full scale (40 SVG units)
+                return Math.sign(value) * Math.min(maxDisplayLength, Math.abs(value) * roadVehicleScale);
+            };
+
+            // Calculate scaled display coordinates
+            const displayX = getScaledValue(x);
+            const displayY = getScaledValue(-y); // Invert Y for SVG coordinate system
+            const displayZ = getScaledValue(z);
+
+            // 3D to 2D projection for main vector
+            // Project Z-axis using isometric perspective (Z affects both X and Y)
+            const projectedX = displayX + (displayZ * 0.5); // Z shifts X slightly
+            const projectedY = displayY - (displayZ * 0.3); // Z shifts Y up/down
+
+            // Update main acceleration vector
             const arrow = document.getElementById('accelArrow');
-            arrow.setAttribute('x2', vectorX);
-            arrow.setAttribute('y2', vectorY);
-            
-            // Color based on magnitude (green = low, yellow = medium, red = high)
-            let color = '#00ff00'; // Green
-            if (magnitude > 5) color = '#ffff00'; // Yellow
-            if (magnitude > 10) color = '#ff0000'; // Red
-            
-            arrow.setAttribute('stroke', color);
-            document.querySelector('#arrowhead polygon').setAttribute('fill', color);
-            
+            arrow.setAttribute('x2', projectedX.toFixed(1));
+            arrow.setAttribute('y2', projectedY.toFixed(1));
+
+            // Update component vectors (show individual axis contributions)
+            document.getElementById('accelX').setAttribute('x2', displayX.toFixed(1));
+            document.getElementById('accelX').setAttribute('y2', '0');
+
+            document.getElementById('accelY').setAttribute('x2', '0');
+            document.getElementById('accelY').setAttribute('y2', displayY.toFixed(1));
+
+            // Z-axis shown as diagonal projection
+            const zProjectedX = displayZ * 0.5;
+            const zProjectedY = -displayZ * 0.3;
+            document.getElementById('accelZ').setAttribute('x2', zProjectedX.toFixed(1));
+            document.getElementById('accelZ').setAttribute('y2', zProjectedY.toFixed(1));
+
+            // Color coding based on typical road vehicle G-force ranges
+            let arrowColor = '#00ff00'; // Green for normal driving (0-0.3g)
+            let strokeWidth = 3;
+
+            if (magnitude > 0.3 && magnitude <= 0.6) {
+                arrowColor = '#ffff00'; // Yellow for moderate (0.3-0.6g)
+                strokeWidth = 3;
+            } else if (magnitude > 0.6 && magnitude <= 1.0) {
+                arrowColor = '#ff8800'; // Orange for hard driving (0.6-1.0g)
+                strokeWidth = 4;
+            } else if (magnitude > 1.0) {
+                arrowColor = '#ff0000'; // Red for emergency/extreme (>1.0g)
+                strokeWidth = 5;
+            }
+
+            // Apply visual updates (no arrowhead reference needed)
+            arrow.setAttribute('stroke', arrowColor);
+            arrow.setAttribute('stroke-width', strokeWidth);
+
+            // Subtle glow effect only for significant accelerations (>0.5g)
+            if (magnitude > 0.5) {
+                arrow.style.filter = `drop-shadow(0 0 ${Math.min(6, magnitude * 4)}px ${arrowColor})`;
+            } else {
+                arrow.style.filter = 'none';
+            }
+
             // Continue updates at 15fps to match RPM detection
             motionAnimationId = setTimeout(updateAccelerationVector, 67);
         }
@@ -1347,11 +1513,28 @@
                 clearTimeout(motionAnimationId);
                 motionAnimationId = null;
             }
-            
-            // Reset display
+
+            // Reset all display elements
             document.getElementById('accelMagnitude').textContent = '0.0';
-            document.getElementById('accelArrow').setAttribute('x2', '0');
-            document.getElementById('accelArrow').setAttribute('y2', '0');
+            document.getElementById('accelXValue').textContent = '0.0';
+            document.getElementById('accelYValue').textContent = '0.0';
+            document.getElementById('accelZValue').textContent = '0.0';
+
+            // Reset main vector
+            const arrow = document.getElementById('accelArrow');
+            arrow.setAttribute('x2', '0');
+            arrow.setAttribute('y2', '0');
+            arrow.setAttribute('stroke', '#ffff00');
+            arrow.setAttribute('stroke-width', '3');
+            arrow.style.filter = 'none';
+
+            // Reset component vectors
+            document.getElementById('accelX').setAttribute('x2', '0');
+            document.getElementById('accelX').setAttribute('y2', '0');
+            document.getElementById('accelY').setAttribute('x2', '0');
+            document.getElementById('accelY').setAttribute('y2', '0');
+            document.getElementById('accelZ').setAttribute('x2', '0');
+            document.getElementById('accelZ').setAttribute('y2', '0');
         }
 
         // Data Logging System Functions
