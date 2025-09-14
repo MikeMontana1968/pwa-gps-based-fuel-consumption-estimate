@@ -1132,12 +1132,13 @@
                 }
             }
             
-            rpmAnimationId = requestAnimationFrame(analyzeRPM);
+            // Update at 15 FPS instead of 60 FPS for better performance
+            rpmAnimationId = setTimeout(analyzeRPM, 67); // 1000ms / 15fps ≈ 67ms
         }
         
         function stopRPMDetection() {
             if (rpmAnimationId) {
-                cancelAnimationFrame(rpmAnimationId);
+                clearTimeout(rpmAnimationId);
                 rpmAnimationId = null;
             }
             
