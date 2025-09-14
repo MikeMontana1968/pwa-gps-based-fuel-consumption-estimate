@@ -322,6 +322,12 @@
             </div>
 
             <div class="metric-card">
+                <div class="metric-label">Remaining Daylight</div>
+                <div class="metric-value" id="remainingDaylight">--:--</div>
+                <div class="metric-label">Hours:Minutes</div>
+            </div>
+
+            <div class="metric-card">
                 <div class="metric-label">3D Acceleration Vector</div>
                 <div class="metric-value" style="height: 120px; display: flex; align-items: center; justify-content: center;">
                     <svg id="accelVector" width="100" height="100" viewBox="-50 -50 100 100" style="background: rgba(255,255,255,0.1); border-radius: 50%;">
@@ -794,6 +800,9 @@
             
             // Start IMU motion detection
             startMotionDetection();
+
+            // Start daylight tracking
+            startDaylightTracking();
         }
         
         function stopTracking() {
@@ -820,7 +829,10 @@
             
             // Stop IMU motion detection
             stopMotionDetection();
-            
+
+            // Stop daylight tracking
+            stopDaylightTracking();
+
             saveData();
         }
         
@@ -867,6 +879,9 @@
                 // First position
                 lastTime = currentTime;
                 lastPosition = currentPosition;
+
+                // Update daylight calculation with new GPS position
+                updateDaylightDisplay();
             }
         }
         
@@ -1248,6 +1263,11 @@
         let currentRollAngle = 0;
         let currentLateralG = 0;
         let motionAnimationId = null;
+
+        // Daylight calculation variables
+        let lastSunsetCalculation = null;
+        let sunsetTime = null;
+        let daylightUpdateInterval = null;
         
         function startMotionDetection() {
             // Enhanced error handling and fallback behavior
@@ -1587,6 +1607,107 @@
             currentLateralG = 0;
             document.getElementById('lateralGForce').textContent = '0.0';
             document.getElementById('lateralGForce').style.color = '#00ff00';
+        }
+
+        // Daylight Calculation Functions
+        function calculateSunset(latitude, longitude, date = new Date()) {
+            // Simplified sunset calculation using the sunrise equation
+            // This is an approximation that's accurate enough for motorcycle riding purposes
+
+            const dayOfYear = getDayOfYear(date);
+            const latRad = latitude * Math.PI / 180;
+
+            // Solar declination angle
+            const declination = 23.45 * Math.sin((360 * (284 + dayOfYear) / 365) * Math.PI / 180);
+            const declinationRad = declination * Math.PI / 180;
+
+            // Hour angle for sunset (when sun is at horizon)
+            const hourAngle = Math.acos(-Math.tan(latRad) * Math.tan(declinationRad));
+            const hourAngleDeg = hourAngle * 180 / Math.PI;
+
+            // Solar noon occurs at 12:00 + equation of time + longitude correction
+            const equationOfTime = 4 * (longitude - 15 * Math.round(longitude / 15)); // Rough approximation
+            const solarNoon = 12 + equationOfTime / 60;
+
+            // Sunset time
+            const sunsetHour = solarNoon + hourAngleDeg / 15;
+
+            // Convert to local time
+            const sunsetDate = new Date(date);
+            sunsetDate.setHours(Math.floor(sunsetHour));
+            sunsetDate.setMinutes((sunsetHour % 1) * 60);
+            sunsetDate.setSeconds(0);
+            sunsetDate.setMilliseconds(0);
+
+            return sunsetDate;
+        }
+
+        function getDayOfYear(date) {
+            const start = new Date(date.getFullYear(), 0, 0);
+            const diff = date - start;
+            const oneDay = 1000 * 60 * 60 * 24;
+            return Math.floor(diff / oneDay);
+        }
+
+        function updateDaylightDisplay() {
+            // Only update if we have GPS coordinates
+            if (!lastPosition) {
+                document.getElementById('remainingDaylight').textContent = '--:--';
+                return;
+            }
+
+            const now = new Date();
+
+            // Recalculate sunset if it's a new day or first calculation
+            if (!lastSunsetCalculation ||
+                now.toDateString() !== lastSunsetCalculation.toDateString()) {
+
+                sunsetTime = calculateSunset(lastPosition.lat, lastPosition.lon, now);
+                lastSunsetCalculation = new Date(now);
+            }
+
+            // Calculate remaining time until sunset
+            const remainingMs = sunsetTime - now;
+
+            if (remainingMs <= 0) {
+                // Sun has already set
+                document.getElementById('remainingDaylight').textContent = '--:--';
+                document.getElementById('remainingDaylight').style.color = '#888888';
+            } else {
+                // Calculate hours and minutes remaining
+                const remainingHours = Math.floor(remainingMs / (1000 * 60 * 60));
+                const remainingMinutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+
+                // Format as HH:MM
+                const timeString = `${remainingHours}:${remainingMinutes.toString().padStart(2, '0')}`;
+                document.getElementById('remainingDaylight').textContent = timeString;
+
+                // Color coding based on remaining daylight
+                const daylightElement = document.getElementById('remainingDaylight');
+                if (remainingHours >= 3) {
+                    daylightElement.style.color = '#00ff00'; // Green - plenty of daylight
+                } else if (remainingHours >= 1) {
+                    daylightElement.style.color = '#ffff00'; // Yellow - getting late
+                } else {
+                    daylightElement.style.color = '#ff8800'; // Orange - sunset approaching
+                }
+            }
+        }
+
+        function startDaylightTracking() {
+            // Update daylight display every minute
+            updateDaylightDisplay();
+            if (daylightUpdateInterval) clearInterval(daylightUpdateInterval);
+            daylightUpdateInterval = setInterval(updateDaylightDisplay, 60000); // Update every minute
+        }
+
+        function stopDaylightTracking() {
+            if (daylightUpdateInterval) {
+                clearInterval(daylightUpdateInterval);
+                daylightUpdateInterval = null;
+            }
+            document.getElementById('remainingDaylight').textContent = '--:--';
+            document.getElementById('remainingDaylight').style.color = '#ffffff';
         }
 
         // Data Logging System Functions
