@@ -312,6 +312,7 @@
                 </div>
                 <div class="metric-label">
                     <span id="rollAngle">0°</span> Roll
+                    <br><small id="rollDebug" style="opacity: 0.7; font-size: 0.8em;">Accel: -- | Raw: --</small>
                 </div>
             </div>
 
@@ -461,7 +462,7 @@
 
     <!-- Version Footer -->
     <div style="text-align: center; padding: 20px; opacity: 0.7; font-size: 0.8em; color: white;">
-        dev-4a6d48c • Cornering Analytics Edition • Built 2025-09-15 00:44 UTC
+        dev-98fc1f7 • Cornering Analytics Edition • Built 2025-09-14 21:05 EST
     </div>
 
     <!-- PWA Install Banner -->
@@ -1426,9 +1427,9 @@
             calculateRollAngle(x, y, z);
 
             // Calculate lateral G-force (sideways acceleration in G units)
-            // X-axis represents left/right acceleration relative to motorcycle
+            // Y-axis represents left/right acceleration relative to motorcycle
             // Convert from m/s² to G (1G = 9.81 m/s²)
-            currentLateralG = x / 9.81;
+            currentLateralG = y / 9.81;
 
             // Update displays
             updateRollDisplay(currentRollAngle);
@@ -1518,16 +1519,21 @@
             // First, check if we have enough acceleration magnitude to trust the reading
             const totalAccel = Math.sqrt(x*x + y*y + z*z);
 
-            // Only calculate roll when we're close to 1G (gravity)
-            // This filters out periods of acceleration/deceleration that skew readings
-            if (totalAccel < 8.0 || totalAccel > 12.0) {
-                // During acceleration/deceleration, don't update roll angle
+            // Only calculate roll when we're reasonably close to 1G (gravity = 9.81 m/s²)
+            // Allow wider range for phone movement while filtering extreme acceleration
+            if (totalAccel < 7.0 || totalAccel > 15.0) {
+                // During extreme acceleration/deceleration, don't update roll angle
+                const debugElement = document.getElementById('rollDebug');
+                if (debugElement) {
+                    debugElement.textContent = `Accel: ${totalAccel.toFixed(1)} | FILTERED`;
+                }
                 return;
             }
 
-            // Calculate roll angle using improved formula
-            // Roll angle is the angle between the gravity vector and the Z-axis
-            const rollAngleRad = Math.atan2(x, z);
+            // Calculate roll angle using correct axis for motorcycle lean
+            // For motorcycle: Y-axis = left/right lean, Z-axis = up/down (gravity)
+            // Roll angle is the angle between the gravity vector and the Z-axis via Y-axis
+            const rollAngleRad = Math.atan2(y, z);
             let rawRollAngle = rollAngleRad * (180 / Math.PI);
 
             // Apply deadband to eliminate small noise
@@ -1547,6 +1553,12 @@
 
             // Apply heavy smoothing - motorcycle roll changes should be gradual
             currentRollAngle = currentRollAngle * 0.92 + medianAngle * 0.08;
+
+            // Update debug display
+            const debugElement = document.getElementById('rollDebug');
+            if (debugElement) {
+                debugElement.textContent = `Accel: ${totalAccel.toFixed(1)} | Raw: ${medianAngle.toFixed(1)}°`;
+            }
         }
 
         function updateRollDisplay(rollAngle) {
@@ -1888,7 +1900,7 @@
             const exportData = {
                 metadata: {
                     exportDate: new Date().toISOString(),
-                    appVersion: 'dev-4a6d48c',
+                    appVersion: 'dev-98fc1f7',
                     logStartTime: logStartTime ? new Date(logStartTime).toISOString() : null,
                     logEndTime: dataLog.length > 0 ? new Date(dataLog[dataLog.length - 1].timestamp).toISOString() : null,
                     totalEntries: dataLog.length,
