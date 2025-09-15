@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git checkout:*)",
+      "Bash(python:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git merge:*)",
+      "WebSearch",
+      "Bash(git push:*)",
+      "Bash(start index.html)",
+      "Bash(git branch:*)",
+      "Read(//c/Users/mikem/Downloads/**)",
+      "Bash(git reset:*)",
+      "Bash(git tag:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
