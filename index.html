@@ -1340,10 +1340,12 @@
             const motionHandler = (event) => {
                 try {
                     // Validate and sanitize acceleration data
-                    if (event.acceleration) {
-                        const accelX = event.acceleration.x;
-                        const accelY = event.acceleration.y;
-                        const accelZ = event.acceleration.z;
+                    // Use accelerationIncludingGravity as it's more widely supported on mobile
+                    const accelData = event.accelerationIncludingGravity || event.acceleration;
+                    if (accelData) {
+                        const accelX = accelData.x;
+                        const accelY = accelData.y;
+                        const accelZ = accelData.z;
 
                         // Filter out null/undefined values and extreme outliers
                         currentAccel.x = (accelX !== null && !isNaN(accelX) && Math.abs(accelX) < 50) ? accelX : currentAccel.x;
@@ -1435,11 +1437,11 @@
             updateRollDisplay(currentRollAngle);
             updateLateralGDisplay(currentLateralG);
 
-            // Update text displays with proper precision - show magnitude in G units
+            // Update text displays with proper precision - show all values in G units
             document.getElementById('accelMagnitude').textContent = (magnitude / 9.81).toFixed(2) + 'g';
-            document.getElementById('accelXValue').textContent = x.toFixed(1);
-            document.getElementById('accelYValue').textContent = y.toFixed(1);
-            document.getElementById('accelZValue').textContent = z.toFixed(1);
+            document.getElementById('accelXValue').textContent = (x / 9.81).toFixed(2) + 'g';
+            document.getElementById('accelYValue').textContent = (y / 9.81).toFixed(2) + 'g';
+            document.getElementById('accelZValue').textContent = (z / 9.81).toFixed(2) + 'g';
 
             // Scaling optimized for road vehicle G-forces (0.1g to 1.5g typical range)
             const maxDisplayLength = 40; // Maximum line length in SVG units
@@ -1536,28 +1538,27 @@
             const rollAngleRad = Math.atan2(y, z);
             let rawRollAngle = rollAngleRad * (180 / Math.PI);
 
-            // Apply deadband to eliminate small noise (reduced for testing)
-            if (Math.abs(rawRollAngle) < 1.0) {
+            // Apply minimal deadband to eliminate only tiny noise
+            if (Math.abs(rawRollAngle) < 0.5) {
                 rawRollAngle = 0;
             }
 
-            // Add to rolling history for better filtering
+            // Add to rolling history with smaller buffer for faster response
             rollAngleHistory.push(rawRollAngle);
-            if (rollAngleHistory.length > 10) {
-                rollAngleHistory.shift(); // Keep only last 10 readings
+            if (rollAngleHistory.length > 3) {
+                rollAngleHistory.shift(); // Keep only last 3 readings for fast response
             }
 
-            // Use median filtering to eliminate spikes
-            const sortedAngles = [...rollAngleHistory].sort((a, b) => a - b);
-            const medianAngle = sortedAngles[Math.floor(sortedAngles.length / 2)];
+            // Use simple average instead of median for faster response
+            const avgAngle = rollAngleHistory.reduce((sum, angle) => sum + angle, 0) / rollAngleHistory.length;
 
-            // Apply moderate smoothing - more responsive while still filtering noise
-            currentRollAngle = currentRollAngle * 0.75 + medianAngle * 0.25;
+            // Apply very light smoothing - prioritize responsiveness
+            currentRollAngle = currentRollAngle * 0.3 + avgAngle * 0.7;
 
             // Update debug display with more detail
             const debugElement = document.getElementById('rollDebug');
             if (debugElement) {
-                debugElement.textContent = `Accel: ${totalAccel.toFixed(1)} | Raw: ${medianAngle.toFixed(1)}° | Y: ${y.toFixed(1)} Z: ${z.toFixed(1)}`;
+                debugElement.textContent = `Motion: ${motionEnabled ? 'ON' : 'OFF'} | Accel: ${totalAccel.toFixed(1)} | Roll: ${currentRollAngle.toFixed(1)}° | Y: ${y.toFixed(1)} Z: ${z.toFixed(1)}`;
             }
         }
 
