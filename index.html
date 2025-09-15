@@ -455,7 +455,7 @@
 
     <!-- Version Footer -->
     <div style="text-align: center; padding: 20px; opacity: 0.7; font-size: 0.8em; color: white;">
-        v2.6.1 • Cornering Analytics Edition • Built 2025-09-15 19:27 EST
+        v2.6.1 • Cornering Analytics Edition • Built 2025-09-15 19:35 EST
     </div>
 
     <!-- PWA Install Banner -->
@@ -1230,21 +1230,21 @@
             // Add Z-axis data to history buffer (similar to audio buffer)
             accelRPMHistory.push(zAccel);
 
-            // Keep buffer size manageable (about 1 second of data at 15 Hz)
-            const bufferSize = 15;
+            // Larger buffer for better frequency resolution (2 seconds at 15 Hz)
+            const bufferSize = 30;
             if (accelRPMHistory.length > bufferSize) {
                 accelRPMHistory.shift();
             }
 
-            // Need sufficient data for FFT analysis
-            if (accelRPMHistory.length < bufferSize) {
+            // Need sufficient data for FFT analysis (reduced requirement)
+            if (accelRPMHistory.length < 10) {
                 document.getElementById('accelRPM').textContent = '--';
                 accelRPMAnimationId = setTimeout(analyzeAccelerometerRPM, 67);
                 return;
             }
 
             // Perform FFT on Z-axis acceleration data
-            const fftSize = 16; // Small FFT for limited buffer
+            const fftSize = 32; // Larger FFT for better frequency resolution
             const fftData = new Float32Array(fftSize);
 
             // Copy recent data to FFT buffer (pad with zeros if needed)
@@ -1256,12 +1256,12 @@
             let maxAmplitude = 0;
             let dominantFreq = 0;
 
-            // Check frequencies in typical RPM range (15-150 Hz for 900-9000 RPM)
+            // Check frequencies in typical RPM range (10-150 Hz for 600-9000 RPM)
             for (let i = 1; i < fftSize / 2; i++) {
                 const frequency = (i * 15) / fftSize; // 15 Hz sample rate
                 const amplitude = Math.abs(fftData[i]);
 
-                if (amplitude > maxAmplitude && frequency >= 15 && frequency <= 150) {
+                if (amplitude > maxAmplitude && frequency >= 10 && frequency <= 150) {
                     maxAmplitude = amplitude;
                     dominantFreq = frequency;
                 }
@@ -1270,20 +1270,20 @@
             // Convert frequency to RPM (for V-twin: freq * 60 / 0.5 = freq * 120)
             const detectedRPM = dominantFreq * 120;
 
-            // Validation and smoothing similar to audio RPM
-            if (detectedRPM > 500 && detectedRPM < 8000 && maxAmplitude > 0.1) {
-                // Apply smoothing
-                currentAccelRPM = currentAccelRPM * 0.85 + detectedRPM * 0.15;
+            // Much more sensitive validation and faster response
+            if (detectedRPM > 600 && detectedRPM < 8000 && maxAmplitude > 0.01) {
+                // Much lighter smoothing for faster response
+                currentAccelRPM = currentAccelRPM * 0.5 + detectedRPM * 0.5;
                 document.getElementById('accelRPM').textContent = Math.round(currentAccelRPM);
 
                 // Color coding: green if close to audio RPM, orange otherwise
                 const rpmDiff = Math.abs(currentAccelRPM - currentRPM);
-                const color = (rpmDiff < 200) ? '#00ff00' : '#ffaa00';
+                const color = (rpmDiff < 300) ? '#00ff00' : '#ffaa00';
                 document.getElementById('accelRPM').style.color = color;
             } else {
-                // No confident reading
-                if (currentAccelRPM > 500) {
-                    currentAccelRPM = currentAccelRPM * 0.9; // Decay
+                // No confident reading - faster decay
+                if (currentAccelRPM > 600) {
+                    currentAccelRPM = currentAccelRPM * 0.8; // Faster decay
                     document.getElementById('accelRPM').textContent = Math.round(currentAccelRPM);
                 } else {
                     currentAccelRPM = 0;
@@ -1922,6 +1922,7 @@
                 relativeTime: logStartTime ? timestamp - logStartTime : 0,
                 speed: Math.round(speed * 100) / 100,
                 rpm: currentRPM || 0,
+                accelRPM: currentAccelRPM || 0,
                 mpg: Math.round(mpg * 100) / 100,
                 distance: Math.round(distance * 10000) / 10000,
                 timeInterval: Math.round(timeMinutes * 1000) / 1000,
@@ -2074,7 +2075,7 @@
                 'Audio_3rd_Freq_Hz', 'Audio_3rd_Amplitude', 'Audio_4th_Freq_Hz', 'Audio_4th_Amplitude',
 
                 // Computed values (derived from sensors and settings)
-                'Speed_mph', 'RPM', 'Distance_miles', 'MPG', 'Fuel_Used_gal',
+                'Speed_mph', 'RPM', 'Accel_RPM', 'Distance_miles', 'MPG', 'Fuel_Used_gal',
                 'Trip_Distance_miles', 'Fuel_Remaining_gal', 'Estimated_Range_miles'
             ];
 
@@ -2123,6 +2124,7 @@
                     // Computed values (derived from sensors and settings)
                     entry.speed,
                     entry.rpm,
+                    entry.accelRPM || 0,
                     entry.distance,
                     entry.mpg,
                     entry.fuelUsed,
