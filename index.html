@@ -235,7 +235,10 @@
             
             <div class="metric-card">
                 <div class="metric-label">Engine RPM</div>
-                <div class="metric-value" id="currentRPM">--</div>
+                <div class="metric-value" style="font-size: 0.75em; line-height: 1.3;">
+                    Audio: <span id="currentRPM" style="color: #00ff00;">--</span><br>
+                    Accel: <span id="accelRPM" style="color: #ffaa00;">--</span>
+                </div>
                 <div class="metric-label">RPM</div>
             </div>
             
@@ -586,6 +589,11 @@
         let gearShiftDetected = false;
         let gearShiftEndTime = 0;
 
+        // Accelerometer RPM Detection variables
+        let currentAccelRPM = 0;
+        let accelRPMHistory = [];
+        let accelRPMAnimationId = null;
+
         // Audio harmonic tracking for logging
         let currentHarmonics = {
             dominant: { frequency: 0, amplitude: 0 },
@@ -787,6 +795,9 @@
             if (rpmEnabled && calibration.engine.enableRPM) {
                 startRPMDetection();
             }
+
+            // Start accelerometer RPM detection (experimental)
+            analyzeAccelerometerRPM();
             
             // Start IMU motion detection
             startMotionDetection();
@@ -816,6 +827,14 @@
             
             // Stop RPM detection
             stopRPMDetection();
+
+            // Stop accelerometer RPM detection
+            if (accelRPMAnimationId) {
+                clearTimeout(accelRPMAnimationId);
+                accelRPMAnimationId = null;
+            }
+            currentAccelRPM = 0;
+            document.getElementById('accelRPM').textContent = '--';
             
             // Stop IMU motion detection
             stopMotionDetection();
@@ -1196,6 +1215,85 @@
             
             // Update at 15 FPS instead of 60 FPS for better performance
             rpmAnimationId = setTimeout(analyzeRPM, 67); // 1000ms / 15fps ≈ 67ms
+        }
+
+        function analyzeAccelerometerRPM() {
+            if (!motionEnabled) {
+                document.getElementById('accelRPM').textContent = '--';
+                accelRPMAnimationId = setTimeout(analyzeAccelerometerRPM, 67);
+                return;
+            }
+
+            // Get Z-axis acceleration data for FFT analysis
+            const zAccel = currentAccel.z;
+
+            // Add Z-axis data to history buffer (similar to audio buffer)
+            accelRPMHistory.push(zAccel);
+
+            // Keep buffer size manageable (about 1 second of data at 15 Hz)
+            const bufferSize = 15;
+            if (accelRPMHistory.length > bufferSize) {
+                accelRPMHistory.shift();
+            }
+
+            // Need sufficient data for FFT analysis
+            if (accelRPMHistory.length < bufferSize) {
+                document.getElementById('accelRPM').textContent = '--';
+                accelRPMAnimationId = setTimeout(analyzeAccelerometerRPM, 67);
+                return;
+            }
+
+            // Perform FFT on Z-axis acceleration data
+            const fftSize = 16; // Small FFT for limited buffer
+            const fftData = new Float32Array(fftSize);
+
+            // Copy recent data to FFT buffer (pad with zeros if needed)
+            for (let i = 0; i < fftSize; i++) {
+                fftData[i] = i < accelRPMHistory.length ? accelRPMHistory[accelRPMHistory.length - fftSize + i] : 0;
+            }
+
+            // Simple frequency analysis to detect dominant frequencies
+            let maxAmplitude = 0;
+            let dominantFreq = 0;
+
+            // Check frequencies in typical RPM range (15-150 Hz for 900-9000 RPM)
+            for (let i = 1; i < fftSize / 2; i++) {
+                const frequency = (i * 15) / fftSize; // 15 Hz sample rate
+                const amplitude = Math.abs(fftData[i]);
+
+                if (amplitude > maxAmplitude && frequency >= 15 && frequency <= 150) {
+                    maxAmplitude = amplitude;
+                    dominantFreq = frequency;
+                }
+            }
+
+            // Convert frequency to RPM (for V-twin: freq * 60 / 0.5 = freq * 120)
+            const detectedRPM = dominantFreq * 120;
+
+            // Validation and smoothing similar to audio RPM
+            if (detectedRPM > 500 && detectedRPM < 8000 && maxAmplitude > 0.1) {
+                // Apply smoothing
+                currentAccelRPM = currentAccelRPM * 0.85 + detectedRPM * 0.15;
+                document.getElementById('accelRPM').textContent = Math.round(currentAccelRPM);
+
+                // Color coding: green if close to audio RPM, orange otherwise
+                const rpmDiff = Math.abs(currentAccelRPM - currentRPM);
+                const color = (rpmDiff < 200) ? '#00ff00' : '#ffaa00';
+                document.getElementById('accelRPM').style.color = color;
+            } else {
+                // No confident reading
+                if (currentAccelRPM > 500) {
+                    currentAccelRPM = currentAccelRPM * 0.9; // Decay
+                    document.getElementById('accelRPM').textContent = Math.round(currentAccelRPM);
+                } else {
+                    currentAccelRPM = 0;
+                    document.getElementById('accelRPM').textContent = '--';
+                }
+                document.getElementById('accelRPM').style.color = '#ffaa00';
+            }
+
+            // Continue analysis at same rate as audio RPM
+            accelRPMAnimationId = setTimeout(analyzeAccelerometerRPM, 67);
         }
 
         function detectGearShift() {
