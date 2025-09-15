@@ -455,7 +455,7 @@
 
     <!-- Version Footer -->
     <div style="text-align: center; padding: 20px; opacity: 0.7; font-size: 0.8em; color: white;">
-        v2.6.1 • Cornering Analytics Edition • Built 2025-09-15 19:35 EST
+        v2.6.1 • Cornering Analytics Edition • Built 2025-09-15 19:38 EST
     </div>
 
     <!-- PWA Install Banner -->
@@ -573,6 +573,7 @@
         let isLogging = false;
         let logStartTime = null;
         let maxLogEntries = 10000; // Limit to prevent memory issues
+        let loggingTimer = null; // Timer for 10Hz logging
         
         // RPM Detection variables
         let rpmAudioContext = null;
@@ -952,10 +953,7 @@
                 tripDistance += distance;
             }
 
-            // Log data if logging is enabled
-            if (isLogging) {
-                logDataPoint(speed, currentMPG, distance, timeMinutes);
-            }
+            // Note: Data logging now happens at 10Hz via timer, not GPS updates
 
             // Update displays - fuel is handled by updateRemainingFuel()
             updateRemainingFuel();
@@ -1896,6 +1894,9 @@
             // Start periodic log status updates
             if (window.logStatusInterval) clearInterval(window.logStatusInterval);
             window.logStatusInterval = setInterval(updateLogStatus, 2000);
+
+            // Start 10Hz logging
+            startHighFrequencyLogging();
         }
 
         function stopDataLogging() {
@@ -1906,8 +1907,31 @@
                 window.logStatusInterval = null;
             }
 
+            // Stop 10Hz logging timer
+            if (loggingTimer) {
+                clearInterval(loggingTimer);
+                loggingTimer = null;
+            }
+
             // Final status update
             updateLogStatus();
+        }
+
+        function startHighFrequencyLogging() {
+            // Log data at 10Hz (every 100ms) when logging is enabled
+            loggingTimer = setInterval(() => {
+                if (isLogging && lastPosition) {
+                    // Get current values for logging
+                    const currentSpeed = parseFloat(document.getElementById('currentSpeed').textContent) || 0;
+                    const currentMPGValue = parseFloat(document.getElementById('currentMPG').textContent) || 0;
+
+                    // Use minimal distance since this is frequent logging
+                    const distance = 0; // High frequency logging doesn't track distance
+                    const timeMinutes = 0.1 / 60; // 100ms in minutes
+
+                    logDataPoint(currentSpeed, currentMPGValue, distance, timeMinutes);
+                }
+            }, 100); // 100ms = 10Hz
         }
 
         function logDataPoint(speed, mpg, distance, timeMinutes) {
@@ -2007,39 +2031,8 @@
                 return;
             }
 
-            // Create comprehensive export data
-            const exportData = {
-                metadata: {
-                    exportDate: new Date().toISOString(),
-                    appVersion: 'v2.6.1',
-                    logStartTime: logStartTime ? new Date(logStartTime).toISOString() : null,
-                    logEndTime: dataLog.length > 0 ? new Date(dataLog[dataLog.length - 1].timestamp).toISOString() : null,
-                    totalEntries: dataLog.length,
-                    sessionDuration: logStartTime ? Date.now() - logStartTime : 0,
-                    vehicle: 'Motorcycle',
-                    dataFields: [
-                        'timestamp', 'relativeTime', 'speed', 'rpm', 'mpg', 'distance',
-                        'timeInterval', 'fuelUsed', 'tripDistance', 'fuelRemaining',
-                        'estimatedRange', 'acceleration', 'gyroscope', 'gps',
-                        'audioHarmonics', 'engineConfig', 'calibration'
-                    ]
-                },
-                data: dataLog
-            };
-
-            // Create CSV export as well
+            // Create CSV export
             const csvData = generateCSV(dataLog);
-
-            // Create and download JSON file
-            const jsonBlob = new Blob([JSON.stringify(exportData, null, 2)], {
-                type: 'application/json'
-            });
-            const jsonUrl = URL.createObjectURL(jsonBlob);
-            const jsonLink = document.createElement('a');
-            jsonLink.href = jsonUrl;
-            jsonLink.download = `motorcycle-fuel-log-${new Date().toISOString().split('T')[0]}.json`;
-            jsonLink.click();
-            URL.revokeObjectURL(jsonUrl);
 
             // Create and download CSV file
             const csvBlob = new Blob([csvData], {
@@ -2052,7 +2045,7 @@
             csvLink.click();
             URL.revokeObjectURL(csvUrl);
 
-            alert(`Data exported successfully!\n\nJSON: ${dataLog.length} entries\nCSV: ${dataLog.length} entries\n\nBoth files have been downloaded.`);
+            alert(`CSV data exported successfully!\n\nEntries: ${dataLog.length}\nFile downloaded.`);
         }
 
         function generateCSV(data) {
