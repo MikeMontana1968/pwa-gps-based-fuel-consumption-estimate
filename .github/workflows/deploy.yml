@@ -30,7 +30,7 @@ jobs:
             echo "VERSION=dev-$COMMIT_HASH" >> $GITHUB_ENV
             echo "DEPLOYMENT_TYPE=development" >> $GITHUB_ENV
           fi
-          echo "BUILD_DATE=$(date -u +'%Y-%m-%d %H:%M UTC')" >> $GITHUB_ENV
+          echo "BUILD_DATE=$(TZ='America/New_York' date +'%Y-%m-%d %H:%M EST')" >> $GITHUB_ENV
           echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
       - name: Create build directory and inject version info
