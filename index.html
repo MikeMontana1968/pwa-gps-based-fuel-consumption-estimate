@@ -1426,9 +1426,9 @@
             calculateRollAngle(x, y, z);
 
             // Calculate lateral G-force (sideways acceleration in G units)
-            // X-axis represents left/right acceleration relative to motorcycle
+            // Y-axis represents left/right acceleration relative to motorcycle
             // Convert from m/s² to G (1G = 9.81 m/s²)
-            currentLateralG = x / 9.81;
+            currentLateralG = y / 9.81;
 
             // Update displays
             updateRollDisplay(currentRollAngle);
@@ -1525,9 +1525,10 @@
                 return;
             }
 
-            // Calculate roll angle using improved formula
-            // Roll angle is the angle between the gravity vector and the Z-axis
-            const rollAngleRad = Math.atan2(x, z);
+            // Calculate roll angle using correct axis for motorcycle lean
+            // For motorcycle: Y-axis = left/right lean, Z-axis = up/down (gravity)
+            // Roll angle is the angle between the gravity vector and the Z-axis via Y-axis
+            const rollAngleRad = Math.atan2(y, z);
             let rawRollAngle = rollAngleRad * (180 / Math.PI);
 
             // Apply deadband to eliminate small noise
