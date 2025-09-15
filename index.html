@@ -1,0 +1,2039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Motorcycle Fuel Tracker</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Fuel Tracker">
+    <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIk1vdG9yY3ljbGUgRnVlbCBUcmFja2VyIiwKICAic2hvcnRfbmFtZSI6ICJGdWVsVHJhY2tlciIsCiAgImRlc2NyaXB0aW9uIjogIkdQUy1iYXNlZCBmdWVsIGNvbnN1bXB0aW9uIHRyYWNrZXIgZm9yIG1vdG9yY3ljbGVzIiwKICAic3RhcnRfdXJsIjogIi8iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiM2NjdlZWEiLAogICJ0aGVtZV9jb2xvciI6ICIjNjY3ZWVhIiwKICAiaWNvbnMiOiBbCiAgICB7CiAgICAgICJzcmMiOiAiZGF0YTppbWFnZS9zdmcreG1sO2Jhc2U2NCxQSE4yWnlCNGJXeHVjejBpYUhSMGNEb3ZMM2QzZHk1M00zUXViM0puTHpJd01EQXZjM1puSWlCM2FXUjBhRDBpTVRJNElpQm9aV2xuYUhROUlqRXlPQ0krUEhKbFkzUWdkMmxrZEdnOUlqRXlPQ0lnYUdWcFoyaDBQU0l4TWpnaUlHWnBiR3c5SWljMk5qZGxaV0VpSUhKNFBTSTNJaTA4TDNKbFkzUStQSFJsZUhRZ2VEMGlOalFpSUhrOUlqVXdJaUJtYVd4c1BTSWpabVptSWlCdVlYWnBZV0Z3Y0MxaGJtTm9iM0k5SW0xcFpHUnNaU0lnZEhWNGRDMWhibU5vYjNJOUltMXBaR1JzWlNJZ1ptOXVkQzF6YVhwbFBTSXlOQ0lnWm05dWRDMTNaV2xuYUhROUltSnZiR1FpUGp3dmRHVjRkRDQ4TDNOMlp6ND0iLAogICAgICAic2l6ZXMiOiAiMTI4eDEyOCIsCiAgICAgICJ0eXBlIjogImltYWdlL3N2Zyt4bWwiCiAgICB9CiAgXSwKICAib3JpZW50YXRpb24iOiAicG9ydHJhaXQiLAogICJjYXRlZ29yaWVzIjogWyJ1dGlsaXRpZXMiLCAidHJhbnNwb3J0Il0KfQ==">
+    
+    <!-- App Icons (using data URIs for simplicity) -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjgiIGhlaWdodD0iMTI4Ij48cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgZmlsbD0iIzY2N2VlYSIgcng9IjciLz48dGV4dCB4PSI2NCIgeT0iNTAiIGZpbGw9IiNmZmYiIG5hdmlnYXRwcC1hbmNob3I9Im1pZGRsZSIgdHVuZS1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIyNCIgZm9udC13ZWlnaHQ9ImJvbGQiPjwvdGV4dD48L3N2Zz4=">
+    <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjgiIGhlaWdodD0iMTI4Ij48cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgZmlsbD0iIzY2N2VlYSIgcng9IjciLz48dGV4dCB4PSI2NCIgeT0iNTAiIGZpbGw9IiNmZmYiIG5hdmlnYXRwcC1hbmNob3I9Im1pZGRsZSIgdHVuZS1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSIyNCIgZm9udC13ZWlnaHQ9ImJvbGQiPjwvdGV4dD48L3N2Zz4=">
+    
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            user-select: none; /* Prevent text selection for app-like feel */
+            -webkit-touch-callout: none; /* Disable callout on iOS */
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        
+        .metric-card {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        }
+        
+        .metric-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin: 10px 0;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+        }
+        
+        .metric-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 30px 0;
+            justify-content: center;
+        }
+        
+        button {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+            touch-action: manipulation; /* Better touch handling */
+        }
+        
+        button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .status {
+            text-align: center;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .gps-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        
+        .info-item {
+            text-align: center;
+        }
+        
+        .info-value {
+            font-size: 1.4em;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        
+        .calibration {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .calibration h3 {
+            margin-top: 0;
+            text-align: center;
+        }
+        
+        .cal-points {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 15px 0;
+        }
+        
+        input[type="number"] {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            width: 80px;
+        }
+        
+        input[type="number"]::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        /* PWA Install Banner */
+        .install-banner {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+        
+        .install-banner button {
+            background: #667eea;
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 5px;
+            margin-left: 10px;
+        }
+        
+        /* Responsive improvements for mobile */
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            
+            .container {
+                padding: 20px;
+            }
+            
+            .metrics-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 15px;
+            }
+            
+            .metric-value {
+                font-size: 2em;
+            }
+            
+            .controls {
+                gap: 10px;
+            }
+            
+            button {
+                padding: 10px 16px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏍️ Motorcycle Fuel Tracker</h1>
+        
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-label">Current Speed</div>
+                <div class="metric-value" id="currentSpeed">0</div>
+                <div class="metric-label">MPH</div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-label">Engine RPM</div>
+                <div class="metric-value" id="currentRPM">--</div>
+                <div class="metric-label">RPM</div>
+            </div>
+            
+            <div class="metric-card" style="display: none;">
+                <div class="metric-label">Estimated MPG</div>
+                <div class="metric-value" id="currentMPG">--</div>
+                <div class="metric-label">Miles/Gallon</div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-label">Fuel Used</div>
+                <div class="metric-value" id="fuelUsed">0.00</div>
+                <div class="metric-label">Gallons</div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-label">Fuel Remaining</div>
+                <div class="metric-value" id="fuelRemaining">4.50</div>
+                <div class="metric-label">Gallons</div>
+            </div>
+            
+            <div class="metric-card" style="display: none;">
+                <div class="metric-label">Estimated Range</div>
+                <div class="metric-value" id="estimatedRange">--</div>
+                <div class="metric-label">Miles</div>
+            </div>
+            
+            <div class="metric-card" style="display: none;">
+                <div class="metric-label">Trip Distance</div>
+                <div class="metric-value" id="tripDistance">0.0</div>
+                <div class="metric-label">Miles</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">Roll Angle</div>
+                <div class="metric-value" style="height: 120px; display: flex; align-items: center; justify-content: center;">
+                    <svg id="rollHorizon" width="100" height="100" viewBox="-50 -50 100 100" style="background: linear-gradient(to bottom, #87CEEB 0%, #87CEEB 50%, #8B4513 50%, #8B4513 100%); border-radius: 50%; border: 2px solid rgba(255,255,255,0.3);">
+                        <!-- Fixed aircraft symbol (center) -->
+                        <g id="aircraftSymbol">
+                            <!-- Main body -->
+                            <line x1="-20" y1="0" x2="20" y2="0" stroke="yellow" stroke-width="3" stroke-linecap="round"/>
+                            <!-- Wings -->
+                            <line x1="-15" y1="-8" x2="-15" y2="8" stroke="yellow" stroke-width="2" stroke-linecap="round"/>
+                            <line x1="15" y1="-8" x2="15" y2="8" stroke="yellow" stroke-width="2" stroke-linecap="round"/>
+                            <!-- Center dot -->
+                            <circle cx="0" cy="0" r="2" fill="yellow"/>
+                        </g>
+
+                        <!-- Rotating horizon line -->
+                        <g id="horizonLine">
+                            <line x1="-45" y1="0" x2="45" y2="0" stroke="white" stroke-width="2"/>
+                            <!-- Horizon tick marks -->
+                            <line x1="-35" y1="-3" x2="-35" y2="3" stroke="white" stroke-width="1"/>
+                            <line x1="-25" y1="-2" x2="-25" y2="2" stroke="white" stroke-width="1"/>
+                            <line x1="-15" y1="-3" x2="-15" y2="3" stroke="white" stroke-width="1"/>
+                            <line x1="15" y1="-3" x2="15" y2="3" stroke="white" stroke-width="1"/>
+                            <line x1="25" y1="-2" x2="25" y2="2" stroke="white" stroke-width="1"/>
+                            <line x1="35" y1="-3" x2="35" y2="3" stroke="white" stroke-width="1"/>
+                        </g>
+
+                        <!-- Roll angle markings (fixed) -->
+                        <g id="rollMarkings" stroke="white" stroke-width="1" fill="white" font-size="8" text-anchor="middle">
+                            <!-- 30 degree marks -->
+                            <line x1="-21.65" y1="-37.5" x2="-18.66" y2="-32.32" stroke-width="2"/>
+                            <line x1="21.65" y1="-37.5" x2="18.66" y2="-32.32" stroke-width="2"/>
+                            <!-- 45 degree marks -->
+                            <line x1="-31.82" y1="-31.82" x2="-28.28" y2="-28.28"/>
+                            <line x1="31.82" y1="-31.82" x2="28.28" y2="-28.28"/>
+                            <!-- 60 degree marks -->
+                            <line x1="-37.5" y1="-21.65" x2="-32.32" y2="-18.66" stroke-width="2"/>
+                            <line x1="37.5" y1="-21.65" x2="32.32" y2="-18.66" stroke-width="2"/>
+                        </g>
+                    </svg>
+                </div>
+                <div class="metric-label">
+                    <span id="rollAngle">0°</span> Roll
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">Lateral G-Force</div>
+                <div class="metric-value" id="lateralGForce">0.0</div>
+                <div class="metric-label">G</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">Remaining Daylight</div>
+                <div class="metric-value" id="remainingDaylight">--:--</div>
+                <div class="metric-label">Hours:Minutes</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">3D Acceleration Vector</div>
+                <div class="metric-value" style="height: 120px; display: flex; align-items: center; justify-content: center;">
+                    <svg id="accelVector" width="100" height="100" viewBox="-50 -50 100 100" style="background: rgba(255,255,255,0.1); border-radius: 50%;">
+                        <!-- 3D coordinate system with labels -->
+                        <!-- X-axis (left-right) -->
+                        <line x1="-40" y1="0" x2="40" y2="0" stroke="rgba(255,100,100,0.6)" stroke-width="2"/>
+                        <text x="35" y="-5" fill="rgba(255,100,100,0.8)" font-size="10" font-weight="bold">X</text>
+
+                        <!-- Y-axis (forward-back, adjusted for device orientation) -->
+                        <line x1="0" y1="-40" x2="0" y2="40" stroke="rgba(100,255,100,0.6)" stroke-width="2"/>
+                        <text x="5" y="-35" fill="rgba(100,255,100,0.8)" font-size="10" font-weight="bold">Y</text>
+
+                        <!-- Z-axis representation (diagonal perspective) -->
+                        <line x1="-20" y1="20" x2="20" y2="-20" stroke="rgba(100,100,255,0.6)" stroke-width="2"/>
+                        <text x="15" y="-25" fill="rgba(100,100,255,0.8)" font-size="10" font-weight="bold">Z</text>
+
+                        <!-- Center point -->
+                        <circle cx="0" cy="0" r="3" fill="rgba(255,255,255,0.7)"/>
+
+                        <!-- Main acceleration vector (simple line, no arrowhead) -->
+                        <line id="accelArrow" x1="0" y1="0" x2="0" y2="0" stroke="#ffff00" stroke-width="3" stroke-linecap="round"/>
+
+                        <!-- Component vectors -->
+                        <line id="accelX" x1="0" y1="0" x2="0" y2="0" stroke="rgba(255,100,100,0.7)" stroke-width="2" stroke-dasharray="3,2" stroke-linecap="round"/>
+                        <line id="accelY" x1="0" y1="0" x2="0" y2="0" stroke="rgba(100,255,100,0.7)" stroke-width="2" stroke-dasharray="3,2" stroke-linecap="round"/>
+                        <line id="accelZ" x1="0" y1="0" x2="0" y2="0" stroke="rgba(100,100,255,0.7)" stroke-width="2" stroke-dasharray="3,2" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <div class="metric-label">
+                    <div style="font-size: 0.8em; line-height: 1.2;">
+                        <div><span id="accelMagnitude">0.0</span> m/s² total</div>
+                        <div style="color: rgba(255,100,100,0.9);">X: <span id="accelXValue">0.0</span></div>
+                        <div style="color: rgba(100,255,100,0.9);">Y: <span id="accelYValue">0.0</span></div>
+                        <div style="color: rgba(100,100,255,0.9);">Z: <span id="accelZValue">0.0</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button id="startBtn" onclick="startTracking()">Start Tracking</button>
+            <button id="stopBtn" onclick="stopTracking()" disabled>Stop Tracking</button>
+            <button id="pauseBtn" onclick="togglePause()" disabled>Pause</button>
+            <button onclick="resetTrip()">Reset Trip</button>
+            <button onclick="refillTank()">Refill Tank</button>
+            <button id="dataLogBtn" onclick="toggleDataLogging()">Start Data Log</button>
+            <button onclick="exportDataLog()">Export Log</button>
+            <button onclick="clearDataLog()">Clear Log</button>
+        </div>
+        
+        <div class="status" id="status">
+            GPS tracking not started. Click "Start Tracking" to begin.
+        </div>
+
+        <!-- Data Logging Status -->
+        <div class="calibration" id="dataLogStatus" style="display: none;">
+            <h3>📊 Data Logging Status</h3>
+            <div class="gps-info">
+                <div class="info-item">
+                    <div class="metric-label">Log Entries</div>
+                    <div class="info-value" id="logEntries">0</div>
+                </div>
+                <div class="info-item">
+                    <div class="metric-label">Session Duration</div>
+                    <div class="info-value" id="logDuration">0:00</div>
+                </div>
+                <div class="info-item">
+                    <div class="metric-label">Data Rate</div>
+                    <div class="info-value" id="dataRate">0</div>
+                    <div class="metric-label">entries/min</div>
+                </div>
+                <div class="info-item">
+                    <div class="metric-label">Log Size</div>
+                    <div class="info-value" id="logSize">0</div>
+                    <div class="metric-label">KB</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="calibration">
+            <h3>📊 Calibration Points</h3>
+            <div class="cal-points">
+                <div>
+                    <label>Highway Speed (mph): </label>
+                    <input type="number" id="highwaySpeed" value="60" min="30" max="100">
+                    <label> → MPG: </label>
+                    <input type="number" id="highwayMPG" value="45" min="20" max="80">
+                </div>
+                <div>
+                    <label>Local Speed (mph): </label>
+                    <input type="number" id="localSpeed" value="30" min="10" max="60">
+                    <label> → MPG: </label>
+                    <input type="number" id="localMPG" value="35" min="15" max="60">
+                </div>
+                <div>
+                    <label>Idle Consumption (gal/hr): </label>
+                    <input type="number" id="idleConsumption" value="0.2" min="0.1" max="0.5" step="0.1">
+                </div>
+            </div>
+            
+            <h4 style="margin: 20px 0 10px 0; text-align: center;">🔧 Engine Configuration</h4>
+            <div class="cal-points">
+                <div>
+                    <label>Cylinders: </label>
+                    <select id="engineCylinders">
+                        <option value="1">Single (1)</option>
+                        <option value="2" selected>Twin (2)</option>
+                        <option value="3">Triple (3)</option>
+                        <option value="4">Four (4)</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Idle RPM: </label>
+                    <input type="number" id="idleRPM" value="950" min="600" max="2000" step="50">
+                </div>
+                <div>
+                    <label>Redline RPM: </label>
+                    <input type="number" id="redlineRPM" value="8000" min="6000" max="15000" step="100">
+                </div>
+                <div>
+                    <label>Enable RPM Detection: </label>
+                    <input type="checkbox" id="enableRPM" checked>
+                </div>
+            </div>
+            <div style="text-align: center; margin-top: 15px;">
+                <button onclick="updateCalibration()">Update Calibration</button>
+            </div>
+        </div>
+        
+    </div>
+
+    <!-- Version Footer -->
+    <div style="text-align: center; padding: 20px; opacity: 0.7; font-size: 0.8em; color: white;">
+        dev-3db2c5c • Cornering Analytics Edition • Built 2025-09-15 00:16 UTC
+    </div>
+
+    <!-- PWA Install Banner -->
+    <div class="install-banner" id="installBanner">
+        📱 Install this app on your phone for better experience!
+        <button onclick="installApp()">Install</button>
+        <button onclick="hideInstallBanner()">Later</button>
+    </div>
+
+    <script>
+        // PWA Installation
+        let deferredPrompt;
+        let isInstalled = false;
+        
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            showInstallBanner();
+        });
+        
+        window.addEventListener('appinstalled', () => {
+            isInstalled = true;
+            hideInstallBanner();
+        });
+        
+        function showInstallBanner() {
+            if (!isInstalled && !localStorage.getItem('installBannerDismissed')) {
+                document.getElementById('installBanner').style.display = 'block';
+            }
+        }
+        
+        function hideInstallBanner() {
+            document.getElementById('installBanner').style.display = 'none';
+            localStorage.setItem('installBannerDismissed', 'true');
+        }
+        
+        function installApp() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('User accepted the install prompt');
+                    }
+                    deferredPrompt = null;
+                    hideInstallBanner();
+                });
+            }
+        }
+        
+        // Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // Register inline service worker
+                const swCode = `
+                    const CACHE_NAME = 'fuel-tracker-v1';
+                    const urlsToCache = [
+                        '/',
+                        '/offline.html'
+                    ];
+                    
+                    self.addEventListener('install', (event) => {
+                        event.waitUntil(
+                            caches.open(CACHE_NAME)
+                                .then((cache) => {
+                                    return cache.addAll(urlsToCache);
+                                })
+                        );
+                    });
+                    
+                    self.addEventListener('fetch', (event) => {
+                        event.respondWith(
+                            caches.match(event.request)
+                                .then((response) => {
+                                    return response || fetch(event.request);
+                                })
+                        );
+                    });
+                `;
+                
+                const blob = new Blob([swCode], { type: 'application/javascript' });
+                const swUrl = URL.createObjectURL(blob);
+                
+                navigator.serviceWorker.register(swUrl)
+                    .then((registration) => {
+                        console.log('SW registered: ', registration);
+                    })
+                    .catch((registrationError) => {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
+        
+        // Prevent zoom on double tap (iOS)
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', function (event) {
+            const now = (new Date()).getTime();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+        
+        // State variables
+        let isTracking = false;
+        let isPaused = false;
+        let watchId = null;
+        let lastPosition = null;
+        let lastTime = null;
+        let fuelUsed = 0;
+        let tripDistance = 0;
+        let tankCapacity = 4.5;
+
+        // Data logging system
+        let dataLog = [];
+        let isLogging = false;
+        let logStartTime = null;
+        let maxLogEntries = 10000; // Limit to prevent memory issues
+        
+        // RPM Detection variables
+        let rpmAudioContext = null;
+        let rpmAudioStream = null;
+        let rpmAnalyser = null;
+        let rpmDataArray = null;
+        let rpmAnimationId = null;
+        let currentRPM = 0;
+        let rpmEnabled = true;
+
+        // Gear shift detection variables
+        let rpmHistory = [];
+        let lastValidRPM = 0;
+        let gearShiftDetected = false;
+        let gearShiftEndTime = 0;
+
+        // Audio harmonic tracking for logging
+        let currentHarmonics = {
+            dominant: { frequency: 0, amplitude: 0 },
+            second: { frequency: 0, amplitude: 0 },
+            third: { frequency: 0, amplitude: 0 },
+            fourth: { frequency: 0, amplitude: 0 }
+        };
+        
+        // Load saved data
+        window.addEventListener('load', () => {
+            loadSavedData();
+        });
+        
+        // Save data when page unloads
+        window.addEventListener('beforeunload', () => {
+            saveData();
+        });
+        
+        function saveData() {
+            const data = {
+                fuelUsed,
+                tripDistance,
+                tankCapacity,
+                calibration,
+                timestamp: Date.now()
+            };
+            localStorage.setItem('fuelTrackerData', JSON.stringify(data));
+        }
+        
+        function loadSavedData() {
+            const saved = localStorage.getItem('fuelTrackerData');
+            if (saved) {
+                const data = JSON.parse(saved);
+                fuelUsed = data.fuelUsed || 0;
+                tripDistance = data.tripDistance || 0;
+                tankCapacity = data.tankCapacity || 4.5;
+                calibration = data.calibration || calibration;
+                
+                // Update displays
+                document.getElementById('fuelUsed').textContent = fuelUsed.toFixed(3);
+                document.getElementById('tripDistance').textContent = tripDistance.toFixed(1);
+                updateRemainingFuel();
+                
+                // Update calibration inputs
+                document.getElementById('highwaySpeed').value = calibration.highway.speed;
+                document.getElementById('highwayMPG').value = calibration.highway.mpg;
+                document.getElementById('localSpeed').value = calibration.local.speed;
+                document.getElementById('localMPG').value = calibration.local.mpg;
+                document.getElementById('idleConsumption').value = calibration.idle.gallonsPerHour;
+                
+                // Update engine configuration inputs
+                document.getElementById('engineCylinders').value = calibration.engine.cylinders;
+                document.getElementById('idleRPM').value = calibration.engine.idleRPM;
+                document.getElementById('redlineRPM').value = calibration.engine.redlineRPM;
+                document.getElementById('enableRPM').checked = calibration.engine.enableRPM;
+                
+                // Initialize RPM state
+                rpmEnabled = calibration.engine.enableRPM;
+            }
+        }
+        
+        // Calibration points
+        let calibration = {
+            highway: {speed: 60, mpg: 45},
+            local: {speed: 30, mpg: 35},
+            idle: {gallonsPerHour: 0.2}, // Typical motorcycle idle consumption
+            engine: {
+                cylinders: 2,
+                idleRPM: 950,
+                redlineRPM: 8000,
+                enableRPM: true
+            }
+        };
+        
+        function interpolateMPG(speed) {
+            const {highway, local} = calibration;
+            
+            // Handle edge cases
+            if (speed <= 0) return local.mpg; // Idling/stopped
+            if (speed <= local.speed) {
+                // Linear interpolation from 0 to local speed
+                const ratio = speed / local.speed;
+                return local.mpg * ratio + local.mpg * (1 - ratio) * 0.7; // Assume 70% efficiency at idle
+            }
+            if (speed >= highway.speed) {
+                // Extrapolate beyond highway speed (efficiency typically decreases)
+                const speedRatio = speed / highway.speed;
+                return highway.mpg / Math.pow(speedRatio, 0.5); // Square root decay
+            }
+            
+            // Linear interpolation between local and highway
+            const ratio = (speed - local.speed) / (highway.speed - local.speed);
+            return local.mpg + (highway.mpg - local.mpg) * ratio;
+        }
+        
+        function calculateFuelConsumption(speed, timeMinutes, rpm = null) {
+            if (timeMinutes <= 0) return 0;
+            
+            // Handle idle consumption for very low speeds (< 5 mph)
+            if (speed < 5) {
+                return calibration.idle.gallonsPerHour * (timeMinutes / 60);
+            }
+            
+            // Use advanced RPM-based calculation if available
+            if (rpm && rpm > 0 && calibration.engine.enableRPM) {
+                return calculateRPMBasedFuelConsumption(speed, rpm, timeMinutes);
+            }
+            
+            // Fallback to speed-only calculation
+            const mpg = interpolateMPG(speed);
+            const milesTrailed = speed * (timeMinutes / 60);
+            return milesTrailed / mpg;
+        }
+        
+        function calculateRPMBasedFuelConsumption(speed, rpm, timeMinutes) {
+            const {idleRPM, redlineRPM} = calibration.engine;
+            const milesTrailed = speed * (timeMinutes / 60);
+            
+            // Calculate engine load factor based on RPM vs Speed relationship
+            const expectedRPMForSpeed = calculateExpectedRPM(speed);
+            const loadFactor = Math.max(0.3, Math.min(2.0, rpm / expectedRPMForSpeed));
+            
+            // Base MPG from speed interpolation
+            const baseMPG = interpolateMPG(speed);
+            
+            // Apply RPM-based corrections
+            const rpmFactor = calculateRPMEfficiencyFactor(rpm);
+            const loadPenalty = Math.pow(loadFactor, 0.8); // Higher load = worse efficiency
+            
+            // Calculate final MPG with RPM considerations
+            const finalMPG = baseMPG * rpmFactor / loadPenalty;
+            
+            return milesTrailed / Math.max(5, finalMPG); // Minimum 5 MPG sanity check
+        }
+        
+        function calculateExpectedRPM(speed) {
+            // Estimate expected RPM based on typical motorcycle gearing
+            // This is a simplified model - real motorcycles vary significantly
+            if (speed < 10) return calibration.engine.idleRPM;
+            if (speed < 25) return calibration.engine.idleRPM + (speed - 10) * 100; // Low gears
+            if (speed < 45) return 2500 + (speed - 25) * 75; // Mid gears
+            return 4000 + (speed - 45) * 50; // High gears
+        }
+        
+        function calculateRPMEfficiencyFactor(rpm) {
+            const {idleRPM, redlineRPM} = calibration.engine;
+            
+            // Most efficient RPM range is typically 25-40% of redline
+            const efficientRPMMin = redlineRPM * 0.25;
+            const efficientRPMMax = redlineRPM * 0.40;
+            
+            if (rpm < idleRPM) return 0.4; // Very inefficient below idle
+            if (rpm >= idleRPM && rpm < efficientRPMMin) {
+                // Gradually improve from idle to efficient range
+                return 0.7 + 0.3 * (rpm - idleRPM) / (efficientRPMMin - idleRPM);
+            }
+            if (rpm >= efficientRPMMin && rpm <= efficientRPMMax) {
+                return 1.0; // Peak efficiency
+            }
+            if (rpm > efficientRPMMax) {
+                // Efficiency degrades after peak range
+                const overRevFactor = Math.min(1.0, (redlineRPM - rpm) / (redlineRPM - efficientRPMMax));
+                return 0.6 + 0.4 * overRevFactor;
+            }
+            
+            return 0.5; // Default fallback
+        }
+        
+        function startTracking() {
+            if (!navigator.geolocation) {
+                document.getElementById('status').textContent = 'GPS not supported by this browser.';
+                return;
+            }
+            
+            const options = {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 1000
+            };
+            
+            watchId = navigator.geolocation.watchPosition(
+                handlePositionUpdate,
+                handlePositionError,
+                options
+            );
+            
+            isTracking = true;
+            isPaused = false;
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            document.getElementById('pauseBtn').disabled = false;
+            document.getElementById('status').textContent = 'GPS tracking started. Waiting for position data...';
+            
+            // Keep screen on (where supported)
+            if ('wakeLock' in navigator) {
+                navigator.wakeLock.request('screen').catch(() => {});
+            }
+            
+            // Start RPM detection if enabled
+            if (rpmEnabled && calibration.engine.enableRPM) {
+                startRPMDetection();
+            }
+            
+            // Start IMU motion detection
+            startMotionDetection();
+
+            // Start daylight tracking
+            startDaylightTracking();
+        }
+        
+        function stopTracking() {
+            if (watchId) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+            
+            isTracking = false;
+            isPaused = false;
+            lastPosition = null;
+            lastTime = null;
+            
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('pauseBtn').disabled = true;
+            document.getElementById('pauseBtn').textContent = 'Pause';
+            document.getElementById('status').textContent = 'GPS tracking stopped.';
+            document.getElementById('currentSpeed').textContent = '0';
+            document.getElementById('currentMPG').textContent = '--';
+            
+            // Stop RPM detection
+            stopRPMDetection();
+            
+            // Stop IMU motion detection
+            stopMotionDetection();
+
+            // Stop daylight tracking
+            stopDaylightTracking();
+
+            saveData();
+        }
+        
+        function togglePause() {
+            isPaused = !isPaused;
+            const pauseBtn = document.getElementById('pauseBtn');
+            
+            if (isPaused) {
+                pauseBtn.textContent = 'Resume';
+                document.getElementById('status').textContent = 'Tracking paused - fuel consumption stopped.';
+            } else {
+                pauseBtn.textContent = 'Pause';
+                document.getElementById('status').textContent = 'Tracking resumed - fuel consumption active.';
+            }
+        }
+        
+        function handlePositionUpdate(position) {
+            const currentTime = Date.now();
+            const currentPosition = {
+                lat: position.coords.latitude,
+                lon: position.coords.longitude,
+                accuracy: position.coords.accuracy
+            };
+            
+            document.getElementById('status').textContent = 
+                `GPS active. Accuracy: ±${Math.round(position.coords.accuracy)}m`;
+            
+            if (lastPosition && lastTime) {
+                const timeDelta = (currentTime - lastTime) / 1000 / 60; // minutes
+                
+                if (timeDelta > 0.1) { // Update every 6 seconds minimum
+                    const distance = calculateDistance(lastPosition, currentPosition);
+                    const speed = (distance / timeDelta) * 60; // mph
+                    
+                    // Filter out unrealistic speeds and poor GPS accuracy
+                    if (speed <= 150 && position.coords.accuracy <= 20) { // Stricter accuracy requirement
+                        updateMetrics(speed, timeDelta, distance);
+                    }
+                    
+                    lastTime = currentTime;
+                    lastPosition = currentPosition;
+                }
+            } else {
+                // First position
+                lastTime = currentTime;
+                lastPosition = currentPosition;
+
+                // Update daylight calculation with new GPS position
+                updateDaylightDisplay();
+            }
+        }
+        
+        function handlePositionError(error) {
+            let message = 'GPS error: ';
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    message += 'Location access denied by user.';
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    message += 'Location information unavailable.';
+                    break;
+                case error.TIMEOUT:
+                    message += 'Location request timed out.';
+                    break;
+                default:
+                    message += 'Unknown error occurred.';
+                    break;
+            }
+            document.getElementById('status').textContent = message;
+        }
+        
+        function calculateDistance(pos1, pos2) {
+            // Haversine formula for distance in miles
+            const R = 3959; // Earth's radius in miles
+            const dLat = (pos2.lat - pos1.lat) * Math.PI / 180;
+            const dLon = (pos2.lon - pos1.lon) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(pos1.lat * Math.PI / 180) * Math.cos(pos2.lat * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+        
+        function updateMetrics(speed, timeMinutes, distance) {
+            // Update current readings
+            document.getElementById('currentSpeed').textContent = Math.round(speed);
+
+            // Calculate MPG considering RPM if available
+            let currentMPG;
+            if (currentRPM > 0 && calibration.engine.enableRPM) {
+                // Use RPM-aware MPG calculation
+                const baseMPG = interpolateMPG(speed);
+                const rpmFactor = calculateRPMEfficiencyFactor(currentRPM);
+                const expectedRPM = calculateExpectedRPM(speed);
+                const loadFactor = Math.max(0.3, Math.min(2.0, currentRPM / expectedRPM));
+                const loadPenalty = Math.pow(loadFactor, 0.8);
+                currentMPG = baseMPG * rpmFactor / loadPenalty;
+            } else {
+                currentMPG = interpolateMPG(speed);
+            }
+
+            document.getElementById('currentMPG').textContent = currentMPG.toFixed(1);
+
+            // Only calculate fuel consumption and distance if not paused
+            if (!isPaused) {
+                const fuelConsumed = calculateFuelConsumption(speed, timeMinutes, currentRPM);
+                fuelUsed += fuelConsumed;
+                tripDistance += distance;
+            }
+
+            // Log data if logging is enabled
+            if (isLogging) {
+                logDataPoint(speed, currentMPG, distance, timeMinutes);
+            }
+
+            // Update displays
+            document.getElementById('fuelUsed').textContent = fuelUsed.toFixed(3);
+
+            const fuelRemaining = Math.max(0, tankCapacity - fuelUsed);
+            document.getElementById('fuelRemaining').textContent = fuelRemaining.toFixed(2);
+
+            // Estimate range based on current MPG
+            const estimatedRange = fuelRemaining * currentMPG;
+            document.getElementById('estimatedRange').textContent =
+                estimatedRange > 0 ? Math.round(estimatedRange) : '0';
+
+            document.getElementById('tripDistance').textContent = tripDistance.toFixed(1);
+        }
+        
+        function resetTrip() {
+            fuelUsed = 0;
+            tripDistance = 0;
+            document.getElementById('fuelUsed').textContent = '0.000';
+            document.getElementById('tripDistance').textContent = '0.0';
+            updateRemainingFuel();
+            saveData();
+        }
+        
+        function refillTank() {
+            fuelUsed = 0;
+            updateRemainingFuel();
+            saveData();
+        }
+        
+        function updateRemainingFuel() {
+            const fuelRemaining = Math.max(0, tankCapacity - fuelUsed);
+            document.getElementById('fuelRemaining').textContent = fuelRemaining.toFixed(2);
+        }
+        
+        function updateCalibration() {
+            calibration.highway.speed = parseInt(document.getElementById('highwaySpeed').value);
+            calibration.highway.mpg = parseInt(document.getElementById('highwayMPG').value);
+            calibration.local.speed = parseInt(document.getElementById('localSpeed').value);
+            calibration.local.mpg = parseInt(document.getElementById('localMPG').value);
+            calibration.idle.gallonsPerHour = parseFloat(document.getElementById('idleConsumption').value);
+            
+            // Update engine configuration
+            calibration.engine.cylinders = parseInt(document.getElementById('engineCylinders').value);
+            calibration.engine.idleRPM = parseInt(document.getElementById('idleRPM').value);
+            calibration.engine.redlineRPM = parseInt(document.getElementById('redlineRPM').value);
+            calibration.engine.enableRPM = document.getElementById('enableRPM').checked;
+            rpmEnabled = calibration.engine.enableRPM;
+            
+            // Update current MPG display if tracking
+            if (isTracking) {
+                const currentSpeed = parseInt(document.getElementById('currentSpeed').textContent);
+                const currentMPG = interpolateMPG(currentSpeed);
+                document.getElementById('currentMPG').textContent = currentMPG.toFixed(1);
+            }
+            
+            saveData();
+        }
+        
+        
+        // RPM Detection Functions
+        async function startRPMDetection() {
+            if (!rpmEnabled || !calibration.engine.enableRPM) return;
+            
+            try {
+                // Request microphone access for RPM detection
+                rpmAudioStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false,
+                        sampleRate: 22050
+                    }
+                });
+                
+                // Create audio context for RPM analysis
+                rpmAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const source = rpmAudioContext.createMediaStreamSource(rpmAudioStream);
+                
+                // Set up analyzer for RPM detection
+                rpmAnalyser = rpmAudioContext.createAnalyser();
+                rpmAnalyser.fftSize = 2048;
+                rpmAnalyser.smoothingTimeConstant = 0.8; // Smooth RPM readings
+                
+                const bufferLength = rpmAnalyser.frequencyBinCount;
+                rpmDataArray = new Uint8Array(bufferLength);
+                
+                source.connect(rpmAnalyser);
+                
+                // Start RPM analysis loop
+                analyzeRPM();
+                
+            } catch (error) {
+                console.log('RPM detection failed:', error.message);
+                // Continue with GPS-only tracking
+            }
+        }
+        
+        function analyzeRPM() {
+            if (!rpmAnalyser || !rpmEnabled) return;
+            
+            rpmAnalyser.getByteFrequencyData(rpmDataArray);
+            
+            const cylinders = calibration.engine.cylinders;
+            const idleRPM = calibration.engine.idleRPM;
+            const redlineRPM = calibration.engine.redlineRPM;
+            
+            // Calculate expected frequency ranges for this engine
+            const minFreq = (idleRPM * cylinders) / 120; // Fundamental at idle
+            const maxFreq = (redlineRPM * cylinders) / 60; // 2nd harmonic at redline
+            
+            // Convert frequency to FFT bin indices
+            const sampleRate = rpmAudioContext.sampleRate;
+            const binSize = sampleRate / rpmAnalyser.fftSize;
+            const minBin = Math.max(1, Math.floor(minFreq / binSize));
+            const maxBin = Math.min(rpmDataArray.length - 1, Math.floor(maxFreq / binSize));
+            
+            // Find multiple peaks in engine frequency range
+            const peaks = [];
+            
+            // Find all significant peaks above threshold - much higher to prevent false positives
+            for (let i = minBin; i <= maxBin; i++) {
+                if (rpmDataArray[i] > 180) { // Even higher threshold to eliminate ambient noise
+                    // Check if this is a local maximum
+                    const isLocalMax = (i === 0 || rpmDataArray[i] > rpmDataArray[i-1]) &&
+                                      (i === rpmDataArray.length-1 || rpmDataArray[i] > rpmDataArray[i+1]);
+
+                    if (isLocalMax) {
+                        const frequency = i * binSize;
+                        peaks.push({ bin: i, amplitude: rpmDataArray[i], frequency });
+                    }
+                }
+            }
+
+            // Sort peaks by amplitude (strongest first)
+            peaks.sort((a, b) => b.amplitude - a.amplitude);
+
+            // Update harmonic tracking for logging (capture top 4 peaks)
+            currentHarmonics.dominant = peaks[0] || { frequency: 0, amplitude: 0 };
+            currentHarmonics.second = peaks[1] || { frequency: 0, amplitude: 0 };
+            currentHarmonics.third = peaks[2] || { frequency: 0, amplitude: 0 };
+            currentHarmonics.fourth = peaks[3] || { frequency: 0, amplitude: 0 };
+
+            // Detect gear shift conditions
+            detectGearShift();
+
+            // Adaptive thresholds based on gear shift detection
+            const baseAmplitudeThreshold = gearShiftDetected ? 160 : 220; // Lower threshold during gear shifts
+            const baseConfidenceThreshold = gearShiftDetected ? 250 : 350; // Lower confidence requirement
+
+            // Calculate RPM from detected peaks - adaptive threshold
+            if (peaks.length > 0 && peaks[0].amplitude > baseAmplitudeThreshold) {
+                let bestRPM = 0;
+                let bestConfidence = 0;
+                
+                // Smart harmonic analysis - try multiple interpretations of each peak
+                for (const peak of peaks.slice(0, 3)) { // Check top 3 peaks
+                    const freq = peak.frequency;
+                    
+                    // Test different harmonic interpretations
+                    const rpmCandidates = [
+                        { rpm: (freq * 120) / cylinders, harmonic: 1, confidence: peak.amplitude * 0.8 }, // Fundamental
+                        { rpm: (freq * 60) / cylinders, harmonic: 2, confidence: peak.amplitude * 1.1 },  // 2nd harmonic
+                        { rpm: (freq * 40) / cylinders, harmonic: 3, confidence: peak.amplitude * 0.9 },  // 3rd harmonic
+                        { rpm: (freq * 30) / cylinders, harmonic: 4, confidence: peak.amplitude * 1.3 }   // 4th harmonic (strong in V-Twins)
+                    ];
+                    
+                    for (const candidate of rpmCandidates) {
+                        // Check if RPM is within reasonable engine range
+                        if (candidate.rpm >= idleRPM * 0.7 && candidate.rpm <= redlineRPM * 1.3) {
+                            // Boost confidence for readings near expected idle
+                            let adjustedConfidence = candidate.confidence;
+                            if (candidate.rpm >= idleRPM * 0.8 && candidate.rpm <= idleRPM * 1.5) {
+                                adjustedConfidence *= 1.5; // Favor idle range readings
+                            }
+                            
+                            if (adjustedConfidence > bestConfidence) {
+                                bestRPM = candidate.rpm;
+                                bestConfidence = adjustedConfidence;
+                            }
+                        }
+                    }
+                }
+                
+                // Apply adaptive validation based on gear shift state
+                if (bestRPM > 0 && bestConfidence > baseConfidenceThreshold) {
+                
+                    // Add speed/RPM correlation validation
+                    const currentSpeed = parseFloat(document.getElementById('currentSpeed').textContent) || 0;
+                    const expectedRPM = calculateExpectedRPM(currentSpeed);
+                    const rpmRatio = bestRPM / expectedRPM;
+
+                    // Adaptive RPM validation and smoothing based on gear shift state
+                    const rpmChangeRate = Math.abs(bestRPM - currentRPM) / Math.max(currentRPM, bestRPM, 1);
+
+                    if (gearShiftDetected) {
+                        // During gear shifts, allow larger RPM changes and use faster response
+                        if (rpmRatio < 0.2 || rpmRatio > 4.0) {
+                            currentRPM = currentRPM * 0.92; // Gentle decay for invalid readings
+                        } else {
+                            // Faster response during gear shifts
+                            currentRPM = currentRPM * 0.75 + bestRPM * 0.25;
+                        }
+                    } else {
+                        // Normal operation - stricter validation, slower response
+                        if (rpmRatio < 0.3 || rpmRatio > 3.0) {
+                            currentRPM = currentRPM * 0.95; // Gradually decay invalid readings
+                        } else {
+                            // Conservative smoothing for stable operation
+                            currentRPM = currentRPM * 0.90 + bestRPM * 0.10;
+                        }
+                    }
+
+                    // Update RPM history for gear shift detection
+                    lastValidRPM = bestRPM;
+                    document.getElementById('currentRPM').textContent = Math.round(currentRPM);
+                } else {
+                    // No confident reading - decay current RPM
+                    if (currentRPM > idleRPM * 0.5) {
+                        currentRPM = currentRPM * 0.92; // Gradual decay
+                        document.getElementById('currentRPM').textContent = Math.round(currentRPM);
+                    } else {
+                        currentRPM = 0;
+                        document.getElementById('currentRPM').textContent = '--';
+                    }
+                }
+            } else {
+                // No strong signal - possibly idle or engine off
+                if (currentRPM > idleRPM * 0.5) {
+                    currentRPM = currentRPM * 0.9; // Gradually decrease
+                    document.getElementById('currentRPM').textContent = Math.round(currentRPM);
+                } else {
+                    document.getElementById('currentRPM').textContent = '--';
+                    currentRPM = 0;
+                }
+            }
+            
+            // Update at 15 FPS instead of 60 FPS for better performance
+            rpmAnimationId = setTimeout(analyzeRPM, 67); // 1000ms / 15fps ≈ 67ms
+        }
+
+        function detectGearShift() {
+            const now = Date.now();
+
+            // Maintain RPM history for gear shift detection (last 3 seconds)
+            rpmHistory.push({ rpm: currentRPM, timestamp: now });
+            rpmHistory = rpmHistory.filter(entry => now - entry.timestamp < 3000);
+
+            // Reset gear shift flag if enough time has passed
+            if (gearShiftDetected && now > gearShiftEndTime) {
+                gearShiftDetected = false;
+            }
+
+            // Only check for gear shifts if we have enough history and current RPM > idle
+            if (rpmHistory.length < 5 || currentRPM < calibration.engine.idleRPM) {
+                return;
+            }
+
+            // Calculate RPM trend over last 1.5 seconds
+            const recentHistory = rpmHistory.filter(entry => now - entry.timestamp < 1500);
+            if (recentHistory.length < 3) return;
+
+            const oldestRPM = recentHistory[0].rpm;
+            const newestRPM = recentHistory[recentHistory.length - 1].rpm;
+            const rpmDrop = oldestRPM - newestRPM;
+            const rpmDropPercent = rpmDrop / Math.max(oldestRPM, 1);
+
+            // Detect gear shift conditions:
+            // 1. Significant RPM drop (>15% and >300 RPM) over short time
+            // 2. Current speed is maintained or increasing (rules out deceleration)
+            const currentSpeed = parseFloat(document.getElementById('currentSpeed').textContent) || 0;
+
+            if (rpmDropPercent > 0.15 && rpmDrop > 300 && currentSpeed > 10) {
+                // Check if speed is stable/increasing (not just braking)
+                const speedElement = document.getElementById('currentSpeed');
+                const previousSpeed = parseFloat(speedElement.getAttribute('data-prev-speed')) || currentSpeed;
+                speedElement.setAttribute('data-prev-speed', currentSpeed);
+
+                // If speed is maintained/increasing during RPM drop, likely gear shift
+                if (currentSpeed >= previousSpeed * 0.95) {
+                    gearShiftDetected = true;
+                    gearShiftEndTime = now + 2000; // Maintain gear shift mode for 2 seconds
+                    console.log(`Gear shift detected: RPM ${oldestRPM} → ${newestRPM} (${(rpmDropPercent*100).toFixed(1)}% drop) at ${currentSpeed} mph`);
+                }
+            }
+        }
+        
+        function stopRPMDetection() {
+            if (rpmAnimationId) {
+                clearTimeout(rpmAnimationId);
+                rpmAnimationId = null;
+            }
+            
+            if (rpmAudioStream) {
+                rpmAudioStream.getTracks().forEach(track => track.stop());
+                rpmAudioStream = null;
+            }
+            
+            if (rpmAudioContext) {
+                rpmAudioContext.close();
+                rpmAudioContext = null;
+            }
+            
+            rpmAnalyser = null;
+            rpmDataArray = null;
+            currentRPM = 0;
+            document.getElementById('currentRPM').textContent = '--';
+        }
+        
+        // IMU and Motion Detection
+        let motionEnabled = false;
+        let currentAccel = { x: 0, y: 0, z: 0 };
+        let currentGyro = { x: 0, y: 0, z: 0 };
+        let currentRollAngle = 0;
+        let currentLateralG = 0;
+        let motionAnimationId = null;
+
+        // Roll angle filtering variables
+        let rollAngleHistory = [];
+        let rollAngleCalibrationOffset = 0;
+
+        // Daylight calculation variables
+        let lastSunsetCalculation = null;
+        let sunsetTime = null;
+        let daylightUpdateInterval = null;
+        
+        function startMotionDetection() {
+            // Enhanced error handling and fallback behavior
+            if (!('DeviceMotionEvent' in window)) {
+                console.log('DeviceMotionEvent not supported - using fallback simulation');
+                enableMotionFallback();
+                return;
+            }
+
+            try {
+                if (typeof DeviceMotionEvent.requestPermission === 'function') {
+                    // iOS 13+ permission request with enhanced error handling
+                    DeviceMotionEvent.requestPermission()
+                        .then(permission => {
+                            if (permission === 'granted') {
+                                enableMotionListeners();
+                            } else {
+                                console.log('Motion permission denied - using limited functionality');
+                                showMotionPermissionMessage();
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Motion permission request failed:', error);
+                            enableMotionFallback();
+                        });
+                } else {
+                    // Android and older iOS with error handling
+                    enableMotionListeners();
+                }
+            } catch (error) {
+                console.error('Motion detection initialization failed:', error);
+                enableMotionFallback();
+            }
+        }
+
+        function showMotionPermissionMessage() {
+            // Show user-friendly message about motion permission
+            document.getElementById('accelMagnitude').textContent = '--';
+            document.getElementById('accelXValue').textContent = '--';
+            document.getElementById('accelYValue').textContent = '--';
+            document.getElementById('accelZValue').textContent = '--';
+
+            // Add a subtle visual indicator
+            const arrow = document.getElementById('accelArrow');
+            arrow.setAttribute('stroke', '#888888');
+            arrow.setAttribute('stroke-dasharray', '5,5');
+        }
+
+        function enableMotionFallback() {
+            // Provide basic fallback when motion detection fails
+            motionEnabled = false;
+            console.log('Using motion detection fallback');
+
+            // Show placeholder values
+            document.getElementById('accelMagnitude').textContent = '0.0';
+            document.getElementById('accelXValue').textContent = '0.0';
+            document.getElementById('accelYValue').textContent = '0.0';
+            document.getElementById('accelZValue').textContent = '0.0';
+        }
+        
+        function enableMotionListeners() {
+            motionEnabled = true;
+
+            // Enhanced motion event listener with validation
+            const motionHandler = (event) => {
+                try {
+                    // Validate and sanitize acceleration data
+                    if (event.acceleration) {
+                        const accelX = event.acceleration.x;
+                        const accelY = event.acceleration.y;
+                        const accelZ = event.acceleration.z;
+
+                        // Filter out null/undefined values and extreme outliers
+                        currentAccel.x = (accelX !== null && !isNaN(accelX) && Math.abs(accelX) < 50) ? accelX : currentAccel.x;
+                        currentAccel.y = (accelY !== null && !isNaN(accelY) && Math.abs(accelY) < 50) ? accelY : currentAccel.y;
+                        currentAccel.z = (accelZ !== null && !isNaN(accelZ) && Math.abs(accelZ) < 50) ? accelZ : currentAccel.z;
+                    }
+
+                    // Validate and sanitize rotation data
+                    if (event.rotationRate) {
+                        const gyroX = event.rotationRate.alpha;
+                        const gyroY = event.rotationRate.beta;
+                        const gyroZ = event.rotationRate.gamma;
+
+                        // Filter out null/undefined values and extreme outliers
+                        currentGyro.x = (gyroX !== null && !isNaN(gyroX) && Math.abs(gyroX) < 360) ? gyroX : currentGyro.x;
+                        currentGyro.y = (gyroY !== null && !isNaN(gyroY) && Math.abs(gyroY) < 360) ? gyroY : currentGyro.y;
+                        currentGyro.z = (gyroZ !== null && !isNaN(gyroZ) && Math.abs(gyroZ) < 360) ? gyroZ : currentGyro.z;
+                    }
+                } catch (error) {
+                    console.warn('Motion data processing error:', error);
+                    // Continue with existing values rather than crashing
+                }
+            };
+
+            // Add motion event listener with error handling
+            try {
+                window.addEventListener('devicemotion', motionHandler, { passive: true });
+
+                // Timeout check to ensure motion detection is working
+                let motionCheckTimeout = setTimeout(() => {
+                    const totalAccel = Math.abs(currentAccel.x) + Math.abs(currentAccel.y) + Math.abs(currentAccel.z);
+                    if (totalAccel === 0) {
+                        console.warn('No motion data received - device may not support motion events');
+                        showMotionPermissionMessage();
+                    }
+                }, 3000);
+
+                // Clear timeout when we get first motion data
+                const firstMotionHandler = () => {
+                    clearTimeout(motionCheckTimeout);
+                    window.removeEventListener('devicemotion', firstMotionHandler);
+                };
+                window.addEventListener('devicemotion', firstMotionHandler, { once: true, passive: true });
+
+            } catch (error) {
+                console.error('Failed to add motion event listeners:', error);
+                enableMotionFallback();
+                return;
+            }
+
+            // Start 3D vector visualization updates
+            updateAccelerationVector();
+        }
+        
+        function updateAccelerationVector() {
+            if (!motionEnabled) return;
+
+            // Get raw acceleration data
+            let { x, y, z } = currentAccel;
+
+            // Adjust coordinate system for motorcycle context
+            // X: Left(-) to Right(+) when riding
+            // Y: Back(-) to Forward(+) when riding
+            // Z: Down(-) to Up(+) when riding
+
+            // Apply device orientation correction for landscape use
+            if (screen.orientation && screen.orientation.angle) {
+                const angle = screen.orientation.angle;
+                if (angle === 90 || angle === 270) {
+                    // Landscape mode - swap and adjust coordinates
+                    const tempX = x;
+                    x = angle === 90 ? -y : y;
+                    y = angle === 90 ? tempX : -tempX;
+                }
+            }
+
+            // Calculate magnitude and individual components
+            const magnitude = Math.sqrt(x*x + y*y + z*z);
+
+            // Calculate roll angle with better filtering
+            calculateRollAngle(x, y, z);
+
+            // Calculate lateral G-force (sideways acceleration in G units)
+            // X-axis represents left/right acceleration relative to motorcycle
+            // Convert from m/s² to G (1G = 9.81 m/s²)
+            currentLateralG = x / 9.81;
+
+            // Update displays
+            updateRollDisplay(currentRollAngle);
+            updateLateralGDisplay(currentLateralG);
+
+            // Update text displays with proper precision
+            document.getElementById('accelMagnitude').textContent = magnitude.toFixed(1);
+            document.getElementById('accelXValue').textContent = x.toFixed(1);
+            document.getElementById('accelYValue').textContent = y.toFixed(1);
+            document.getElementById('accelZValue').textContent = z.toFixed(1);
+
+            // Scaling optimized for road vehicle G-forces (0.1g to 1.5g typical range)
+            const maxDisplayLength = 40; // Maximum line length in SVG units
+            const sensitivityThreshold = 0.1; // Show even gentle accelerations (0.1g)
+            const roadVehicleScale = 30; // Scale factor optimized for typical road forces
+
+            // Linear scaling appropriate for road vehicle dynamics
+            const getScaledValue = (value) => {
+                if (Math.abs(value) < sensitivityThreshold) return 0;
+
+                // Direct linear scaling - length proportional to G-force
+                // 1g = full scale (40 SVG units)
+                return Math.sign(value) * Math.min(maxDisplayLength, Math.abs(value) * roadVehicleScale);
+            };
+
+            // Calculate scaled display coordinates
+            const displayX = getScaledValue(x);
+            const displayY = getScaledValue(-y); // Invert Y for SVG coordinate system
+            const displayZ = getScaledValue(z);
+
+            // 3D to 2D projection for main vector
+            // Project Z-axis using isometric perspective (Z affects both X and Y)
+            const projectedX = displayX + (displayZ * 0.5); // Z shifts X slightly
+            const projectedY = displayY - (displayZ * 0.3); // Z shifts Y up/down
+
+            // Update main acceleration vector
+            const arrow = document.getElementById('accelArrow');
+            arrow.setAttribute('x2', projectedX.toFixed(1));
+            arrow.setAttribute('y2', projectedY.toFixed(1));
+
+            // Update component vectors (show individual axis contributions)
+            document.getElementById('accelX').setAttribute('x2', displayX.toFixed(1));
+            document.getElementById('accelX').setAttribute('y2', '0');
+
+            document.getElementById('accelY').setAttribute('x2', '0');
+            document.getElementById('accelY').setAttribute('y2', displayY.toFixed(1));
+
+            // Z-axis shown as diagonal projection
+            const zProjectedX = displayZ * 0.5;
+            const zProjectedY = -displayZ * 0.3;
+            document.getElementById('accelZ').setAttribute('x2', zProjectedX.toFixed(1));
+            document.getElementById('accelZ').setAttribute('y2', zProjectedY.toFixed(1));
+
+            // Color coding based on typical road vehicle G-force ranges
+            let arrowColor = '#00ff00'; // Green for normal driving (0-0.3g)
+            let strokeWidth = 3;
+
+            if (magnitude > 0.3 && magnitude <= 0.6) {
+                arrowColor = '#ffff00'; // Yellow for moderate (0.3-0.6g)
+                strokeWidth = 3;
+            } else if (magnitude > 0.6 && magnitude <= 1.0) {
+                arrowColor = '#ff8800'; // Orange for hard driving (0.6-1.0g)
+                strokeWidth = 4;
+            } else if (magnitude > 1.0) {
+                arrowColor = '#ff0000'; // Red for emergency/extreme (>1.0g)
+                strokeWidth = 5;
+            }
+
+            // Apply visual updates (no arrowhead reference needed)
+            arrow.setAttribute('stroke', arrowColor);
+            arrow.setAttribute('stroke-width', strokeWidth);
+
+            // Subtle glow effect only for significant accelerations (>0.5g)
+            if (magnitude > 0.5) {
+                arrow.style.filter = `drop-shadow(0 0 ${Math.min(6, magnitude * 4)}px ${arrowColor})`;
+            } else {
+                arrow.style.filter = 'none';
+            }
+
+            // Continue updates at 15fps to match RPM detection
+            motionAnimationId = setTimeout(updateAccelerationVector, 67);
+        }
+
+        function calculateRollAngle(x, y, z) {
+            // Improved roll angle calculation with proper filtering
+
+            // First, check if we have enough acceleration magnitude to trust the reading
+            const totalAccel = Math.sqrt(x*x + y*y + z*z);
+
+            // Only calculate roll when we're close to 1G (gravity)
+            // This filters out periods of acceleration/deceleration that skew readings
+            if (totalAccel < 8.0 || totalAccel > 12.0) {
+                // During acceleration/deceleration, don't update roll angle
+                return;
+            }
+
+            // Calculate roll angle using improved formula
+            // Roll angle is the angle between the gravity vector and the Z-axis
+            const rollAngleRad = Math.atan2(x, z);
+            let rawRollAngle = rollAngleRad * (180 / Math.PI);
+
+            // Apply deadband to eliminate small noise
+            if (Math.abs(rawRollAngle) < 3.0) {
+                rawRollAngle = 0;
+            }
+
+            // Add to rolling history for better filtering
+            rollAngleHistory.push(rawRollAngle);
+            if (rollAngleHistory.length > 10) {
+                rollAngleHistory.shift(); // Keep only last 10 readings
+            }
+
+            // Use median filtering to eliminate spikes
+            const sortedAngles = [...rollAngleHistory].sort((a, b) => a - b);
+            const medianAngle = sortedAngles[Math.floor(sortedAngles.length / 2)];
+
+            // Apply heavy smoothing - motorcycle roll changes should be gradual
+            currentRollAngle = currentRollAngle * 0.92 + medianAngle * 0.08;
+        }
+
+        function updateRollDisplay(rollAngle) {
+            // Display the already-filtered roll angle
+            const displayAngle = currentRollAngle;
+
+            // Update text display
+            document.getElementById('rollAngle').textContent = Math.round(displayAngle) + '°';
+
+            // Update artificial horizon
+            const horizonLine = document.getElementById('horizonLine');
+            if (horizonLine) {
+                // Rotate the horizon line opposite to the roll angle
+                // (aircraft symbol stays fixed, horizon rotates)
+                horizonLine.setAttribute('transform', `rotate(${-displayAngle})`);
+            }
+
+            // Color coding based on lean angle severity
+            const rollText = document.getElementById('rollAngle');
+            const absAngle = Math.abs(displayAngle);
+
+            if (absAngle < 15) {
+                rollText.style.color = '#00ff00'; // Green - upright
+            } else if (absAngle < 30) {
+                rollText.style.color = '#ffff00'; // Yellow - moderate lean
+            } else if (absAngle < 45) {
+                rollText.style.color = '#ff8800'; // Orange - significant lean
+            } else {
+                rollText.style.color = '#ff0000'; // Red - extreme lean
+            }
+        }
+
+        function updateLateralGDisplay(lateralG) {
+            // Smooth the G-force reading to reduce jitter
+            const smoothedG = currentLateralG * 0.85 + lateralG * 0.15;
+            currentLateralG = smoothedG;
+
+            // Update display with 1 decimal precision
+            document.getElementById('lateralGForce').textContent = Math.abs(smoothedG).toFixed(1);
+
+            // Color coding based on G-force intensity (using absolute value)
+            const gForceElement = document.getElementById('lateralGForce');
+            const absG = Math.abs(smoothedG);
+
+            if (absG < 0.3) {
+                gForceElement.style.color = '#00ff00'; // Green - gentle cornering
+            } else if (absG < 0.6) {
+                gForceElement.style.color = '#ffff00'; // Yellow - moderate cornering
+            } else if (absG < 1.0) {
+                gForceElement.style.color = '#ff8800'; // Orange - aggressive cornering
+            } else {
+                gForceElement.style.color = '#ff0000'; // Red - extreme cornering
+            }
+        }
+
+        function stopMotionDetection() {
+            motionEnabled = false;
+            if (motionAnimationId) {
+                clearTimeout(motionAnimationId);
+                motionAnimationId = null;
+            }
+
+            // Reset all display elements
+            document.getElementById('accelMagnitude').textContent = '0.0';
+            document.getElementById('accelXValue').textContent = '0.0';
+            document.getElementById('accelYValue').textContent = '0.0';
+            document.getElementById('accelZValue').textContent = '0.0';
+
+            // Reset main vector
+            const arrow = document.getElementById('accelArrow');
+            arrow.setAttribute('x2', '0');
+            arrow.setAttribute('y2', '0');
+            arrow.setAttribute('stroke', '#ffff00');
+            arrow.setAttribute('stroke-width', '3');
+            arrow.style.filter = 'none';
+
+            // Reset component vectors
+            document.getElementById('accelX').setAttribute('x2', '0');
+            document.getElementById('accelX').setAttribute('y2', '0');
+            document.getElementById('accelY').setAttribute('x2', '0');
+            document.getElementById('accelY').setAttribute('y2', '0');
+            document.getElementById('accelZ').setAttribute('x2', '0');
+            document.getElementById('accelZ').setAttribute('y2', '0');
+
+            // Reset roll display
+            currentRollAngle = 0;
+            rollAngleHistory = [];
+            document.getElementById('rollAngle').textContent = '0°';
+            document.getElementById('rollAngle').style.color = '#00ff00';
+            const horizonLine = document.getElementById('horizonLine');
+            if (horizonLine) {
+                horizonLine.setAttribute('transform', 'rotate(0)');
+            }
+
+            // Reset lateral G-force display
+            currentLateralG = 0;
+            document.getElementById('lateralGForce').textContent = '0.0';
+            document.getElementById('lateralGForce').style.color = '#00ff00';
+        }
+
+        // Daylight Calculation Functions
+        function calculateSunset(latitude, longitude, date = new Date()) {
+            // Simplified sunset calculation using the sunrise equation
+            // This is an approximation that's accurate enough for motorcycle riding purposes
+
+            const dayOfYear = getDayOfYear(date);
+            const latRad = latitude * Math.PI / 180;
+
+            // Solar declination angle
+            const declination = 23.45 * Math.sin((360 * (284 + dayOfYear) / 365) * Math.PI / 180);
+            const declinationRad = declination * Math.PI / 180;
+
+            // Hour angle for sunset (when sun is at horizon)
+            const hourAngle = Math.acos(-Math.tan(latRad) * Math.tan(declinationRad));
+            const hourAngleDeg = hourAngle * 180 / Math.PI;
+
+            // Solar noon occurs at 12:00 + equation of time + longitude correction
+            const equationOfTime = 4 * (longitude - 15 * Math.round(longitude / 15)); // Rough approximation
+            const solarNoon = 12 + equationOfTime / 60;
+
+            // Sunset time
+            const sunsetHour = solarNoon + hourAngleDeg / 15;
+
+            // Convert to local time
+            const sunsetDate = new Date(date);
+            sunsetDate.setHours(Math.floor(sunsetHour));
+            sunsetDate.setMinutes((sunsetHour % 1) * 60);
+            sunsetDate.setSeconds(0);
+            sunsetDate.setMilliseconds(0);
+
+            return sunsetDate;
+        }
+
+        function getDayOfYear(date) {
+            const start = new Date(date.getFullYear(), 0, 0);
+            const diff = date - start;
+            const oneDay = 1000 * 60 * 60 * 24;
+            return Math.floor(diff / oneDay);
+        }
+
+        function updateDaylightDisplay() {
+            // Only update if we have GPS coordinates
+            if (!lastPosition) {
+                document.getElementById('remainingDaylight').textContent = '--:--';
+                return;
+            }
+
+            const now = new Date();
+
+            // Recalculate sunset if it's a new day or first calculation
+            if (!lastSunsetCalculation ||
+                now.toDateString() !== lastSunsetCalculation.toDateString()) {
+
+                sunsetTime = calculateSunset(lastPosition.lat, lastPosition.lon, now);
+                lastSunsetCalculation = new Date(now);
+            }
+
+            // Calculate remaining time until sunset
+            const remainingMs = sunsetTime - now;
+
+            if (remainingMs <= 0) {
+                // Sun has already set
+                document.getElementById('remainingDaylight').textContent = '--:--';
+                document.getElementById('remainingDaylight').style.color = '#888888';
+            } else {
+                // Calculate hours and minutes remaining
+                const remainingHours = Math.floor(remainingMs / (1000 * 60 * 60));
+                const remainingMinutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+
+                // Format as HH:MM
+                const timeString = `${remainingHours}:${remainingMinutes.toString().padStart(2, '0')}`;
+                document.getElementById('remainingDaylight').textContent = timeString;
+
+                // Color coding based on remaining daylight
+                const daylightElement = document.getElementById('remainingDaylight');
+                if (remainingHours >= 3) {
+                    daylightElement.style.color = '#00ff00'; // Green - plenty of daylight
+                } else if (remainingHours >= 1) {
+                    daylightElement.style.color = '#ffff00'; // Yellow - getting late
+                } else {
+                    daylightElement.style.color = '#ff8800'; // Orange - sunset approaching
+                }
+            }
+        }
+
+        function startDaylightTracking() {
+            // Update daylight display every minute
+            updateDaylightDisplay();
+            if (daylightUpdateInterval) clearInterval(daylightUpdateInterval);
+            daylightUpdateInterval = setInterval(updateDaylightDisplay, 60000); // Update every minute
+        }
+
+        function stopDaylightTracking() {
+            if (daylightUpdateInterval) {
+                clearInterval(daylightUpdateInterval);
+                daylightUpdateInterval = null;
+            }
+            document.getElementById('remainingDaylight').textContent = '--:--';
+            document.getElementById('remainingDaylight').style.color = '#ffffff';
+        }
+
+        // Data Logging System Functions
+        function toggleDataLogging() {
+            const logBtn = document.getElementById('dataLogBtn');
+
+            if (!isLogging) {
+                startDataLogging();
+                logBtn.textContent = 'Stop Data Log';
+                logBtn.style.background = 'rgba(255, 100, 100, 0.7)';
+            } else {
+                stopDataLogging();
+                logBtn.textContent = 'Start Data Log';
+                logBtn.style.background = '';
+            }
+        }
+
+        function startDataLogging() {
+            isLogging = true;
+            logStartTime = Date.now();
+            dataLog = [];
+
+            document.getElementById('dataLogStatus').style.display = 'block';
+            updateLogStatus();
+
+            // Start periodic log status updates
+            if (window.logStatusInterval) clearInterval(window.logStatusInterval);
+            window.logStatusInterval = setInterval(updateLogStatus, 2000);
+        }
+
+        function stopDataLogging() {
+            isLogging = false;
+
+            if (window.logStatusInterval) {
+                clearInterval(window.logStatusInterval);
+                window.logStatusInterval = null;
+            }
+
+            // Final status update
+            updateLogStatus();
+        }
+
+        function logDataPoint(speed, mpg, distance, timeMinutes) {
+            // Prevent memory overflow
+            if (dataLog.length >= maxLogEntries) {
+                dataLog.shift(); // Remove oldest entry
+            }
+
+            const timestamp = Date.now();
+            const logEntry = {
+                timestamp: timestamp,
+                relativeTime: logStartTime ? timestamp - logStartTime : 0,
+                speed: Math.round(speed * 100) / 100,
+                rpm: currentRPM || 0,
+                mpg: Math.round(mpg * 100) / 100,
+                distance: Math.round(distance * 10000) / 10000,
+                timeInterval: Math.round(timeMinutes * 1000) / 1000,
+                fuelUsed: Math.round(fuelUsed * 1000) / 1000,
+                tripDistance: Math.round(tripDistance * 100) / 100,
+                fuelRemaining: Math.round((tankCapacity - fuelUsed) * 100) / 100,
+                estimatedRange: Math.round((tankCapacity - fuelUsed) * mpg),
+                acceleration: {
+                    x: Math.round(currentAccel.x * 100) / 100,
+                    y: Math.round(currentAccel.y * 100) / 100,
+                    z: Math.round(currentAccel.z * 100) / 100,
+                    magnitude: Math.round(Math.sqrt(currentAccel.x*currentAccel.x + currentAccel.y*currentAccel.y + currentAccel.z*currentAccel.z) * 100) / 100
+                },
+                gyroscope: {
+                    x: Math.round(currentGyro.x * 100) / 100,
+                    y: Math.round(currentGyro.y * 100) / 100,
+                    z: Math.round(currentGyro.z * 100) / 100
+                },
+                gps: lastPosition ? {
+                    latitude: Math.round(lastPosition.lat * 1000000) / 1000000,
+                    longitude: Math.round(lastPosition.lon * 1000000) / 1000000,
+                    accuracy: Math.round(lastPosition.accuracy * 10) / 10
+                } : null,
+                audioHarmonics: {
+                    dominant: {
+                        frequency: Math.round(currentHarmonics.dominant.frequency * 10) / 10,
+                        amplitude: currentHarmonics.dominant.amplitude
+                    },
+                    second: {
+                        frequency: Math.round(currentHarmonics.second.frequency * 10) / 10,
+                        amplitude: currentHarmonics.second.amplitude
+                    },
+                    third: {
+                        frequency: Math.round(currentHarmonics.third.frequency * 10) / 10,
+                        amplitude: currentHarmonics.third.amplitude
+                    },
+                    fourth: {
+                        frequency: Math.round(currentHarmonics.fourth.frequency * 10) / 10,
+                        amplitude: currentHarmonics.fourth.amplitude
+                    }
+                },
+                engineConfig: {
+                    cylinders: calibration.engine.cylinders,
+                    idleRPM: calibration.engine.idleRPM,
+                    redlineRPM: calibration.engine.redlineRPM,
+                    enableRPM: calibration.engine.enableRPM
+                },
+                calibration: {
+                    highway: calibration.highway,
+                    local: calibration.local,
+                    idle: calibration.idle
+                }
+            };
+
+            dataLog.push(logEntry);
+        }
+
+        function updateLogStatus() {
+            if (!isLogging && !dataLog.length) return;
+
+            document.getElementById('logEntries').textContent = dataLog.length;
+
+            // Calculate session duration
+            const duration = logStartTime ? Date.now() - logStartTime : 0;
+            const minutes = Math.floor(duration / 60000);
+            const seconds = Math.floor((duration % 60000) / 1000);
+            document.getElementById('logDuration').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+            // Calculate data rate (entries per minute)
+            const dataRate = duration > 0 ? Math.round((dataLog.length / duration) * 60000 * 10) / 10 : 0;
+            document.getElementById('dataRate').textContent = dataRate;
+
+            // Estimate log size in KB
+            const logSizeBytes = JSON.stringify(dataLog).length;
+            const logSizeKB = Math.round(logSizeBytes / 1024 * 10) / 10;
+            document.getElementById('logSize').textContent = logSizeKB;
+        }
+
+        function exportDataLog() {
+            if (dataLog.length === 0) {
+                alert('No data to export. Start logging first.');
+                return;
+            }
+
+            // Create comprehensive export data
+            const exportData = {
+                metadata: {
+                    exportDate: new Date().toISOString(),
+                    appVersion: 'dev-3db2c5c',
+                    logStartTime: logStartTime ? new Date(logStartTime).toISOString() : null,
+                    logEndTime: dataLog.length > 0 ? new Date(dataLog[dataLog.length - 1].timestamp).toISOString() : null,
+                    totalEntries: dataLog.length,
+                    sessionDuration: logStartTime ? Date.now() - logStartTime : 0,
+                    vehicle: 'Motorcycle',
+                    dataFields: [
+                        'timestamp', 'relativeTime', 'speed', 'rpm', 'mpg', 'distance',
+                        'timeInterval', 'fuelUsed', 'tripDistance', 'fuelRemaining',
+                        'estimatedRange', 'acceleration', 'gyroscope', 'gps',
+                        'audioHarmonics', 'engineConfig', 'calibration'
+                    ]
+                },
+                data: dataLog
+            };
+
+            // Create CSV export as well
+            const csvData = generateCSV(dataLog);
+
+            // Create and download JSON file
+            const jsonBlob = new Blob([JSON.stringify(exportData, null, 2)], {
+                type: 'application/json'
+            });
+            const jsonUrl = URL.createObjectURL(jsonBlob);
+            const jsonLink = document.createElement('a');
+            jsonLink.href = jsonUrl;
+            jsonLink.download = `motorcycle-fuel-log-${new Date().toISOString().split('T')[0]}.json`;
+            jsonLink.click();
+            URL.revokeObjectURL(jsonUrl);
+
+            // Create and download CSV file
+            const csvBlob = new Blob([csvData], {
+                type: 'text/csv'
+            });
+            const csvUrl = URL.createObjectURL(csvBlob);
+            const csvLink = document.createElement('a');
+            csvLink.href = csvUrl;
+            csvLink.download = `motorcycle-fuel-log-${new Date().toISOString().split('T')[0]}.csv`;
+            csvLink.click();
+            URL.revokeObjectURL(csvUrl);
+
+            alert(`Data exported successfully!\n\nJSON: ${dataLog.length} entries\nCSV: ${dataLog.length} entries\n\nBoth files have been downloaded.`);
+        }
+
+        function generateCSV(data) {
+            if (data.length === 0) return '';
+
+            // CSV headers - configuration/constant fields first, then computed values
+            const headers = [
+                // Configuration and engine settings (constant fields)
+                'Engine_Cylinders', 'Engine_Idle_RPM', 'Engine_Redline_RPM', 'RPM_Detection_Enabled',
+                'Highway_Speed_mph', 'Highway_MPG', 'Local_Speed_mph', 'Local_MPG', 'Idle_Consumption_galhr',
+
+                // Timestamp and tracking data
+                'Timestamp', 'ISO_DateTime', 'Relative_Time_ms', 'Time_Interval_min',
+
+                // Raw sensor inputs
+                'GPS_Latitude', 'GPS_Longitude', 'GPS_Accuracy_m',
+                'Accel_X_ms2', 'Accel_Y_ms2', 'Accel_Z_ms2', 'Accel_Magnitude_ms2',
+                'Gyro_X_degs', 'Gyro_Y_degs', 'Gyro_Z_degs',
+                'Audio_Dominant_Freq_Hz', 'Audio_Dominant_Amplitude', 'Audio_2nd_Freq_Hz', 'Audio_2nd_Amplitude',
+                'Audio_3rd_Freq_Hz', 'Audio_3rd_Amplitude', 'Audio_4th_Freq_Hz', 'Audio_4th_Amplitude',
+
+                // Computed values (derived from sensors and settings)
+                'Speed_mph', 'RPM', 'Distance_miles', 'MPG', 'Fuel_Used_gal',
+                'Trip_Distance_miles', 'Fuel_Remaining_gal', 'Estimated_Range_miles'
+            ];
+
+            let csv = headers.join(',') + '\n';
+
+            // CSV data rows - reordered to match new header order
+            data.forEach(entry => {
+                const row = [
+                    // Configuration and engine settings (constant fields)
+                    entry.engineConfig.cylinders,
+                    entry.engineConfig.idleRPM,
+                    entry.engineConfig.redlineRPM,
+                    entry.engineConfig.enableRPM,
+                    entry.calibration.highway.speed,
+                    entry.calibration.highway.mpg,
+                    entry.calibration.local.speed,
+                    entry.calibration.local.mpg,
+                    entry.calibration.idle.gallonsPerHour,
+
+                    // Timestamp and tracking data
+                    entry.timestamp,
+                    new Date(entry.timestamp).toISOString(),
+                    entry.relativeTime,
+                    entry.timeInterval,
+
+                    // Raw sensor inputs
+                    entry.gps ? entry.gps.latitude : '',
+                    entry.gps ? entry.gps.longitude : '',
+                    entry.gps ? entry.gps.accuracy : '',
+                    entry.acceleration.x,
+                    entry.acceleration.y,
+                    entry.acceleration.z,
+                    entry.acceleration.magnitude,
+                    entry.gyroscope.x,
+                    entry.gyroscope.y,
+                    entry.gyroscope.z,
+                    entry.audioHarmonics ? entry.audioHarmonics.dominant.frequency : '',
+                    entry.audioHarmonics ? entry.audioHarmonics.dominant.amplitude : '',
+                    entry.audioHarmonics ? entry.audioHarmonics.second.frequency : '',
+                    entry.audioHarmonics ? entry.audioHarmonics.second.amplitude : '',
+                    entry.audioHarmonics ? entry.audioHarmonics.third.frequency : '',
+                    entry.audioHarmonics ? entry.audioHarmonics.third.amplitude : '',
+                    entry.audioHarmonics ? entry.audioHarmonics.fourth.frequency : '',
+                    entry.audioHarmonics ? entry.audioHarmonics.fourth.amplitude : '',
+
+                    // Computed values (derived from sensors and settings)
+                    entry.speed,
+                    entry.rpm,
+                    entry.distance,
+                    entry.mpg,
+                    entry.fuelUsed,
+                    entry.tripDistance,
+                    entry.fuelRemaining,
+                    entry.estimatedRange
+                ];
+                csv += row.join(',') + '\n';
+            });
+
+            return csv;
+        }
+
+        function clearDataLog() {
+            if (dataLog.length === 0) {
+                alert('No data to clear.');
+                return;
+            }
+
+            if (confirm(`Clear ${dataLog.length} log entries?\n\nThis cannot be undone.`)) {
+                dataLog = [];
+                logStartTime = null;
+
+                if (isLogging) {
+                    stopDataLogging();
+                    document.getElementById('dataLogBtn').textContent = 'Start Data Log';
+                    document.getElementById('dataLogBtn').style.background = '';
+                }
+
+                document.getElementById('dataLogStatus').style.display = 'none';
+                alert('Data log cleared successfully.');
+            }
+        }
+    </script>
+</body>
+</html>
