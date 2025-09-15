@@ -311,16 +311,10 @@
                     </svg>
                 </div>
                 <div class="metric-label">
-                    <span id="rollAngle">0°</span> Roll
-                    <br><small id="rollDebug" style="opacity: 0.7; font-size: 0.8em;">Accel: -- | Raw: --</small>
+                    <span id="rollAngle">0°</span> Roll • <span id="lateralGForce">0.0</span>g
                 </div>
             </div>
 
-            <div class="metric-card">
-                <div class="metric-label">Lateral G-Force</div>
-                <div class="metric-value" id="lateralGForce">0.0</div>
-                <div class="metric-label">G</div>
-            </div>
 
             <div class="metric-card">
                 <div class="metric-label">Remaining Daylight</div>
@@ -1562,6 +1556,9 @@
             // Update text display
             document.getElementById('rollAngle').textContent = Math.round(displayAngle) + '°';
 
+            // Update G-force display
+            document.getElementById('lateralGForce').textContent = Math.abs(currentLateralG).toFixed(1);
+
             // Update artificial horizon
             const horizonLine = document.getElementById('horizonLine');
             if (horizonLine) {
@@ -1570,19 +1567,25 @@
                 horizonLine.setAttribute('transform', `rotate(${-displayAngle})`);
             }
 
-            // Color coding based on lean angle severity
+            // Color coding based on G-force intensity (prioritize G-force over angle)
             const rollText = document.getElementById('rollAngle');
-            const absAngle = Math.abs(displayAngle);
+            const gForceElement = document.getElementById('lateralGForce');
+            const absG = Math.abs(currentLateralG);
 
-            if (absAngle < 15) {
-                rollText.style.color = '#00ff00'; // Green - upright
-            } else if (absAngle < 30) {
-                rollText.style.color = '#ffff00'; // Yellow - moderate lean
-            } else if (absAngle < 45) {
-                rollText.style.color = '#ff8800'; // Orange - significant lean
+            let color;
+            if (absG < 0.3) {
+                color = '#00ff00'; // Green - gentle cornering
+            } else if (absG < 0.6) {
+                color = '#ffff00'; // Yellow - moderate cornering
+            } else if (absG < 1.0) {
+                color = '#ff8800'; // Orange - aggressive cornering
             } else {
-                rollText.style.color = '#ff0000'; // Red - extreme lean
+                color = '#ff0000'; // Red - extreme cornering
             }
+
+            // Apply same color to both roll angle and G-force
+            rollText.style.color = color;
+            gForceElement.style.color = color;
         }
 
         function updateLateralGDisplay(lateralG) {
@@ -1649,8 +1652,6 @@
 
             // Reset lateral G-force display
             currentLateralG = 0;
-            document.getElementById('lateralGForce').textContent = '0.0';
-            document.getElementById('lateralGForce').style.color = '#00ff00';
         }
 
         // Daylight Calculation Functions
