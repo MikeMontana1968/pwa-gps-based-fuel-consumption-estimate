@@ -409,8 +409,8 @@
         </div>
         
         <div class="calibration">
-            <h3>📊 Calibration Points</h3>
-            <div class="cal-points">
+            <h3 onclick="toggleCalibration()" style="cursor: pointer; user-select: none;">📊 Calibration Points <span id="calibrationToggle">▼</span></h3>
+            <div class="cal-points" id="calibrationContent" style="display: none;">
                 <div>
                     <label>Highway Speed (mph): </label>
                     <input type="number" id="highwaySpeed" value="60" min="30" max="100">
@@ -1772,6 +1772,19 @@
                 stopDataLogging();
                 logBtn.textContent = 'Start Data Log';
                 logBtn.style.background = '';
+            }
+        }
+
+        function toggleCalibration() {
+            const content = document.getElementById('calibrationContent');
+            const toggle = document.getElementById('calibrationToggle');
+
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                toggle.textContent = '▲';
+            } else {
+                content.style.display = 'none';
+                toggle.textContent = '▼';
             }
         }
 
