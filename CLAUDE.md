@@ -72,3 +72,4 @@ See `DEPLOYMENT.md` for complete deployment documentation.
 - **Ongoing**: Enhanced RPM detection accuracy and gear shift awareness
 - Always remember this is a mobile web app. Console debugging is not available
 - the motorcycle under test is a 2012 Victory Highball, and an iPhone 13 mounted on the handlebar.
+- remember that this can not be tested locally
