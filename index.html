@@ -246,15 +246,11 @@
             </div>
             
             <div class="metric-card">
-                <div class="metric-label">Fuel Used</div>
-                <div class="metric-value" id="fuelUsed">0.00</div>
-                <div class="metric-label">Gallons</div>
-            </div>
-            
-            <div class="metric-card">
-                <div class="metric-label">Fuel Remaining</div>
-                <div class="metric-value" id="fuelRemaining">4.50</div>
-                <div class="metric-label">Gallons</div>
+                <div class="metric-label">Fuel Est</div>
+                <div class="metric-value" style="font-size: 0.8em; line-height: 1.2;">
+                    Used: <span id="fuelUsed">0g 0oz</span><br>
+                    Left: <span id="fuelRemaining">4g</span>
+                </div>
             </div>
             
             <div class="metric-card" style="display: none;">
@@ -629,7 +625,6 @@
                 calibration = data.calibration || calibration;
                 
                 // Update displays
-                document.getElementById('fuelUsed').textContent = fuelUsed.toFixed(3);
                 document.getElementById('tripDistance').textContent = tripDistance.toFixed(1);
                 updateRemainingFuel();
                 
@@ -943,13 +938,11 @@
                 logDataPoint(speed, currentMPG, distance, timeMinutes);
             }
 
-            // Update displays
-            document.getElementById('fuelUsed').textContent = fuelUsed.toFixed(3);
-
-            const fuelRemaining = Math.max(0, tankCapacity - fuelUsed);
-            document.getElementById('fuelRemaining').textContent = fuelRemaining.toFixed(2);
+            // Update displays - fuel is handled by updateRemainingFuel()
+            updateRemainingFuel();
 
             // Estimate range based on current MPG
+            const fuelRemaining = Math.max(0, tankCapacity - fuelUsed);
             const estimatedRange = fuelRemaining * currentMPG;
             document.getElementById('estimatedRange').textContent =
                 estimatedRange > 0 ? Math.round(estimatedRange) : '0';
@@ -960,7 +953,6 @@
         function resetTrip() {
             fuelUsed = 0;
             tripDistance = 0;
-            document.getElementById('fuelUsed').textContent = '0.000';
             document.getElementById('tripDistance').textContent = '0.0';
             updateRemainingFuel();
             saveData();
@@ -972,9 +964,32 @@
             saveData();
         }
         
+        function formatFuelUsed(gallons) {
+            // Format as whole gallons + whole ounces (4g 2oz)
+            const wholeGallons = Math.floor(gallons);
+            const remainingGallons = gallons - wholeGallons;
+            const ounces = Math.round(remainingGallons * 128); // 128 fl oz per gallon
+
+            if (wholeGallons === 0 && ounces === 0) {
+                return "0g 0oz";
+            }
+            return `${wholeGallons}g ${ounces}oz`;
+        }
+
+        function formatFuelRemaining(gallons) {
+            // Whole gallons if >= 1, otherwise whole fluid ounces
+            if (gallons >= 1) {
+                return `${Math.round(gallons)}g`;
+            } else {
+                const ounces = Math.round(gallons * 128); // 128 fl oz per gallon
+                return `${ounces}oz`;
+            }
+        }
+
         function updateRemainingFuel() {
             const fuelRemaining = Math.max(0, tankCapacity - fuelUsed);
-            document.getElementById('fuelRemaining').textContent = fuelRemaining.toFixed(2);
+            document.getElementById('fuelUsed').textContent = formatFuelUsed(fuelUsed);
+            document.getElementById('fuelRemaining').textContent = formatFuelRemaining(fuelRemaining);
         }
         
         function updateCalibration() {
