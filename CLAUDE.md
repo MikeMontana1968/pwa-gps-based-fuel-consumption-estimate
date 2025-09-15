@@ -70,6 +70,33 @@ See `DEPLOYMENT.md` for complete deployment documentation.
 - **v2.5.0**: Remaining daylight calculator for ride planning
 - **v2.5.x**: Automated version injection and deployment system
 - **Ongoing**: Enhanced RPM detection accuracy and gear shift awareness
+
+## EXPERIMENTAL DEVELOPMENT STATUS (September 2025)
+
+**⚠️ CURRENT BRANCH: Experimental Accelerometer RPM Detection**
+
+This branch contains significant experimental changes that may need rollback:
+
+### **Major Additions**:
+- **Dual RPM Detection System**: Added accelerometer-based RPM backup using Z-axis vibration FFT analysis
+- **Signal Amplification**: 2.5x amplification factor for weak accelerometer signals
+- **Ultra-Sensitive Thresholds**: Reduced amplitude threshold from 0.01 to 0.003 (experimental)
+- **10Hz Data Logging**: Increased from GPS-triggered to 100ms timer-based logging
+- **UI Consolidation**: Removed JSON export, consolidated fuel displays, simplified interface
+
+### **Validation Results**:
+- **CSV Data Analysis Confirmed**: Real correlation between audio and accelerometer RPM
+  - Example readings: Audio=191/Accel=186, Audio=192/Accel=190
+- **Roll Indicator**: Fixed responsiveness issues with proper gravity isolation
+- **Performance**: Higher frequency logging working without stability issues
+
+### **Rollback Considerations**:
+- If accelerometer RPM proves unstable or battery-draining, revert to audio-only
+- 10Hz logging may impact battery life on longer rides
+- Ultra-sensitive thresholds might introduce false positives
+- Current implementation is highly experimental and needs extensive field testing
+
+### **Testing Environment**:
 - Always remember this is a mobile web app. Console debugging is not available
-- the motorcycle under test is a 2012 Victory Highball, and an iPhone 13 mounted on the handlebar.
-- remember that this can not be tested locally
+- The motorcycle under test is a 2012 Victory Highball, and an iPhone 13 mounted on the handlebar
+- Remember that this cannot be tested locally - requires mobile deployment for sensor access

@@ -1250,14 +1250,14 @@
                 fftData[i] = i < accelRPMHistory.length ? accelRPMHistory[accelRPMHistory.length - fftSize + i] : 0;
             }
 
-            // Simple frequency analysis to detect dominant frequencies
+            // Simple frequency analysis to detect dominant frequencies with amplification
             let maxAmplitude = 0;
             let dominantFreq = 0;
 
             // Check frequencies in typical RPM range (10-150 Hz for 600-9000 RPM)
             for (let i = 1; i < fftSize / 2; i++) {
                 const frequency = (i * 15) / fftSize; // 15 Hz sample rate
-                const amplitude = Math.abs(fftData[i]);
+                const amplitude = Math.abs(fftData[i]) * 2.5; // Amplification factor for weak signals
 
                 if (amplitude > maxAmplitude && frequency >= 10 && frequency <= 150) {
                     maxAmplitude = amplitude;
@@ -1268,10 +1268,10 @@
             // Convert frequency to RPM (for V-twin: freq * 60 / 0.5 = freq * 120)
             const detectedRPM = dominantFreq * 120;
 
-            // Much more sensitive validation and faster response
-            if (detectedRPM > 600 && detectedRPM < 8000 && maxAmplitude > 0.01) {
-                // Much lighter smoothing for faster response
-                currentAccelRPM = currentAccelRPM * 0.5 + detectedRPM * 0.5;
+            // Ultra-sensitive validation with amplified signals
+            if (detectedRPM > 600 && detectedRPM < 8000 && maxAmplitude > 0.003) {
+                // Very light smoothing for maximum responsiveness
+                currentAccelRPM = currentAccelRPM * 0.3 + detectedRPM * 0.7;
                 document.getElementById('accelRPM').textContent = Math.round(currentAccelRPM);
 
                 // Color coding: green if close to audio RPM, orange otherwise

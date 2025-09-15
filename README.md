@@ -73,6 +73,24 @@ This is an **experimental fuel tracking system** exploring the feasibility of au
 - Monitor engine performance through RPM analysis
 - Optimize routes and riding habits for maximum efficiency
 
+## 🔬 Latest Experimental Progress
+
+### **Accelerometer RPM Detection (September 2025)**
+- **Dual RPM System**: Implemented accelerometer-based RPM detection as backup for audio system
+- **Vibration Analysis**: Z-axis FFT analysis with 2.5x signal amplification for weak signals
+- **Real-World Validation**: CSV data analysis confirmed correlation between audio and accelerometer readings
+  - Example detections: Audio=191/Accel=186, Audio=192/Accel=190
+- **Ultra-Sensitive Thresholds**: Reduced amplitude threshold to 0.003 with 70/30 smoothing for maximum responsiveness
+- **10Hz Logging**: Increased data collection frequency to 100ms intervals for better analysis
+
+### **UI Consolidation & Performance**
+- **Streamlined Interface**: Consolidated fuel displays, removed redundant sections
+- **Responsive Roll Indicator**: Fixed dampening issues with proper gravity isolation
+- **CSV-Only Export**: Removed JSON export, focusing on comprehensive CSV telemetry (38+ fields)
+- **Enhanced Cornering Analytics**: Improved roll angle calculation with median filtering
+
+**Status**: Experimental branch with promising accelerometer RPM correlation. May require rollback if instability occurs.
+
 ## 🔬 Future Development
 
 The foundation is solid for advanced features like:
@@ -85,4 +103,4 @@ The foundation is solid for advanced features like:
 
 **Built with web technologies and audio signal processing for motorcycle fuel analysis.** 🛣️
 
-*v2.0.2 • RPM Edition - Experimental motorcycle fuel tracking with audio RPM detection*
+*v2.5.x • Experimental - Dual RPM detection with accelerometer backup system*
