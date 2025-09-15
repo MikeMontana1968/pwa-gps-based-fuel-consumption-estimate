@@ -462,7 +462,7 @@
 
     <!-- Version Footer -->
     <div style="text-align: center; padding: 20px; opacity: 0.7; font-size: 0.8em; color: white;">
-        v2.6.1 • Cornering Analytics Edition • Built 2025-09-15 18:56 EST
+        v2.6.1 • Cornering Analytics Edition • Built 2025-09-15 19:01 EST
     </div>
 
     <!-- PWA Install Banner -->
@@ -1265,8 +1265,8 @@
         let currentLateralG = 0;
         let motionAnimationId = null;
 
-        // Roll angle filtering variables
-        let rollAngleHistory = [];
+        // Roll angle filtering variables - for static tilt measurement
+        let smoothedAccel = { x: 0, y: 0, z: 0 }; // Low-pass filtered for gravity-only measurement
         let rollAngleCalibrationOffset = 0;
 
         // Daylight calculation variables
@@ -1516,49 +1516,42 @@
         }
 
         function calculateRollAngle(x, y, z) {
-            // Improved roll angle calculation with proper filtering
+            // Calculate static tilt angle relative to gravity (not dynamic motion)
+            // This measures the angle of the device/bike relative to vertical
 
-            // First, check if we have enough acceleration magnitude to trust the reading
-            const totalAccel = Math.sqrt(x*x + y*y + z*z);
+            // Apply heavy low-pass filtering to isolate gravity from motion acceleration
+            // This filters out quick movements and keeps only the static tilt component
+            const alpha = 0.9; // Heavy smoothing (90% old value, 10% new)
 
-            // Only calculate roll when we're reasonably close to 1G (gravity = 9.81 m/s²)
-            // Allow wider range for phone movement while filtering extreme acceleration
-            if (totalAccel < 7.0 || totalAccel > 15.0) {
-                // During extreme acceleration/deceleration, don't update roll angle
-                const debugElement = document.getElementById('rollDebug');
-                if (debugElement) {
-                    debugElement.textContent = `Accel: ${totalAccel.toFixed(1)} | FILTERED`;
-                }
-                return;
+            // Low-pass filter to isolate gravity from motion
+            smoothedAccel.x = smoothedAccel.x * alpha + x * (1 - alpha);
+            smoothedAccel.y = smoothedAccel.y * alpha + y * (1 - alpha);
+            smoothedAccel.z = smoothedAccel.z * alpha + z * (1 - alpha);
+
+            // Use smoothed values for tilt calculation (gravity vector only)
+            const gx = smoothedAccel.x;
+            const gy = smoothedAccel.y;
+            const gz = smoothedAccel.z;
+
+            // Calculate roll angle from gravity vector
+            // Roll = rotation around front-to-back axis (left/right tilt)
+            // Use atan2 for full 360-degree range
+            const rollAngleRad = Math.atan2(gx, Math.sqrt(gy*gy + gz*gz));
+            let rollAngle = rollAngleRad * (180 / Math.PI);
+
+            // Apply small deadband for zero position stability
+            if (Math.abs(rollAngle) < 1.0) {
+                rollAngle = 0;
             }
 
-            // Calculate roll angle using correct axis for motorcycle lean
-            // For motorcycle: Y-axis = left/right lean, Z-axis = up/down (gravity)
-            // Roll angle is the angle between the gravity vector and the Z-axis via Y-axis
-            const rollAngleRad = Math.atan2(y, z);
-            let rawRollAngle = rollAngleRad * (180 / Math.PI);
+            // Update current angle directly (already heavily filtered)
+            currentRollAngle = rollAngle;
 
-            // Apply minimal deadband to eliminate only tiny noise
-            if (Math.abs(rawRollAngle) < 0.5) {
-                rawRollAngle = 0;
-            }
-
-            // Add to rolling history with smaller buffer for faster response
-            rollAngleHistory.push(rawRollAngle);
-            if (rollAngleHistory.length > 3) {
-                rollAngleHistory.shift(); // Keep only last 3 readings for fast response
-            }
-
-            // Use simple average instead of median for faster response
-            const avgAngle = rollAngleHistory.reduce((sum, angle) => sum + angle, 0) / rollAngleHistory.length;
-
-            // Apply very light smoothing - prioritize responsiveness
-            currentRollAngle = currentRollAngle * 0.3 + avgAngle * 0.7;
-
-            // Update debug display with more detail
+            // Update debug display
             const debugElement = document.getElementById('rollDebug');
             if (debugElement) {
-                debugElement.textContent = `Motion: ${motionEnabled ? 'ON' : 'OFF'} | Accel: ${totalAccel.toFixed(1)} | Roll: ${currentRollAngle.toFixed(1)}° | Y: ${y.toFixed(1)} Z: ${z.toFixed(1)}`;
+                const totalAccel = Math.sqrt(x*x + y*y + z*z);
+                debugElement.textContent = `Motion: ${motionEnabled ? 'ON' : 'OFF'} | Total: ${totalAccel.toFixed(1)} | Roll: ${currentRollAngle.toFixed(1)}° | gX: ${gx.toFixed(2)}`;
             }
         }
 
@@ -1646,7 +1639,7 @@
 
             // Reset roll display
             currentRollAngle = 0;
-            rollAngleHistory = [];
+            smoothedAccel = { x: 0, y: 0, z: 0 }; // Reset gravity filter
             document.getElementById('rollAngle').textContent = '0°';
             document.getElementById('rollAngle').style.color = '#00ff00';
             const horizonLine = document.getElementById('horizonLine');
