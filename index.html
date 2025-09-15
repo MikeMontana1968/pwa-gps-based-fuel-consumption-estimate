@@ -1435,8 +1435,8 @@
             updateRollDisplay(currentRollAngle);
             updateLateralGDisplay(currentLateralG);
 
-            // Update text displays with proper precision
-            document.getElementById('accelMagnitude').textContent = magnitude.toFixed(1);
+            // Update text displays with proper precision - show magnitude in G units
+            document.getElementById('accelMagnitude').textContent = (magnitude / 9.81).toFixed(2) + 'g';
             document.getElementById('accelXValue').textContent = x.toFixed(1);
             document.getElementById('accelYValue').textContent = y.toFixed(1);
             document.getElementById('accelZValue').textContent = z.toFixed(1);
@@ -1536,8 +1536,8 @@
             const rollAngleRad = Math.atan2(y, z);
             let rawRollAngle = rollAngleRad * (180 / Math.PI);
 
-            // Apply deadband to eliminate small noise
-            if (Math.abs(rawRollAngle) < 3.0) {
+            // Apply deadband to eliminate small noise (reduced for testing)
+            if (Math.abs(rawRollAngle) < 1.0) {
                 rawRollAngle = 0;
             }
 
@@ -1551,13 +1551,13 @@
             const sortedAngles = [...rollAngleHistory].sort((a, b) => a - b);
             const medianAngle = sortedAngles[Math.floor(sortedAngles.length / 2)];
 
-            // Apply heavy smoothing - motorcycle roll changes should be gradual
-            currentRollAngle = currentRollAngle * 0.92 + medianAngle * 0.08;
+            // Apply moderate smoothing - more responsive while still filtering noise
+            currentRollAngle = currentRollAngle * 0.75 + medianAngle * 0.25;
 
-            // Update debug display
+            // Update debug display with more detail
             const debugElement = document.getElementById('rollDebug');
             if (debugElement) {
-                debugElement.textContent = `Accel: ${totalAccel.toFixed(1)} | Raw: ${medianAngle.toFixed(1)}°`;
+                debugElement.textContent = `Accel: ${totalAccel.toFixed(1)} | Raw: ${medianAngle.toFixed(1)}° | Y: ${y.toFixed(1)} Z: ${z.toFixed(1)}`;
             }
         }
 
