@@ -63,6 +63,17 @@ In `index.html`, these placeholders get replaced:
 appVersion: '{{VERSION}}'
 ```
 
+## ⚙️ GitHub Pages Configuration
+
+**IMPORTANT**: Ensure GitHub Pages is configured correctly:
+
+1. Go to repository **Settings** → **Pages**
+2. Under **Source**, select "Deploy from a branch"
+3. Set branch to **gh-pages** (NOT main)
+4. Save the configuration
+
+**Why**: The workflow deploys processed files to `gh-pages` branch, but if Pages serves from `main`, you'll see unprocessed `{{VERSION}}` placeholders.
+
 ## 🎉 Benefits
 
 ✅ **Single Source of Truth**: Git tags control versions
@@ -70,3 +81,4 @@ appVersion: '{{VERSION}}'
 ✅ **Build Timestamps**: Know exactly when each version was built
 ✅ **Development Tracking**: Dev builds get unique identifiers
 ✅ **Synchronized**: HTML version always matches git history
+✅ **Automatic Deployment**: Tag push triggers complete build and deploy
