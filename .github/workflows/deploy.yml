@@ -33,31 +33,39 @@ jobs:
           echo "BUILD_DATE=$(date -u +'%Y-%m-%d %H:%M UTC')" >> $GITHUB_ENV
           echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      - name: Inject version and build info into HTML
+      - name: Create build directory and inject version info
         run: |
           echo "Deploying $DEPLOYMENT_TYPE build"
           echo "Version: '$VERSION'"
           echo "Build date: '$BUILD_DATE'"
           echo "Commit: '$COMMIT_HASH'"
 
+          # Create build directory
+          mkdir -p build
+          cp index.html build/
+
           # Show what we're replacing
           echo "=== BEFORE replacement ==="
-          grep -n "{{VERSION}}" index.html || echo "No {{VERSION}} found"
-          grep -n "{{BUILD_DATE}}" index.html || echo "No {{BUILD_DATE}} found"
+          grep -n "{{VERSION}}" build/index.html || echo "No {{VERSION}} found"
+          grep -n "{{BUILD_DATE}}" build/index.html || echo "No {{BUILD_DATE}} found"
 
-          # Replace placeholders in index.html with more robust escaping
-          sed -i "s/{{VERSION}}/${VERSION}/g" index.html
-          sed -i "s/{{BUILD_DATE}}/${BUILD_DATE}/g" index.html
-          sed -i "s/{{COMMIT_HASH}}/${COMMIT_HASH}/g" index.html
+          # Replace placeholders in build/index.html
+          sed -i "s/{{VERSION}}/${VERSION}/g" build/index.html
+          sed -i "s/{{BUILD_DATE}}/${BUILD_DATE}/g" build/index.html
+          sed -i "s/{{COMMIT_HASH}}/${COMMIT_HASH}/g" build/index.html
 
           # Verify replacements worked
           echo "=== AFTER replacement ==="
-          grep -n "$VERSION" index.html || echo "Version replacement failed"
-          grep -A2 -B2 "Version Footer" index.html
+          grep -n "$VERSION" build/index.html || echo "Version replacement failed"
+          grep -A2 -B2 "Version Footer" build/index.html
+
+          # Show final file for verification
+          echo "=== Final deployed content ==="
+          head -n 470 build/index.html | tail -n 10
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: .
+          publish_dir: ./build
           exclude_assets: '.github,DEPLOYMENT.md,.claude'
