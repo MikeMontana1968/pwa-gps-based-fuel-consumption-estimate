@@ -36,17 +36,23 @@ jobs:
       - name: Inject version and build info into HTML
         run: |
           echo "Deploying $DEPLOYMENT_TYPE build"
-          echo "Version: $VERSION"
-          echo "Build date: $BUILD_DATE"
-          echo "Commit: $COMMIT_HASH"
+          echo "Version: '$VERSION'"
+          echo "Build date: '$BUILD_DATE'"
+          echo "Commit: '$COMMIT_HASH'"
 
-          # Replace placeholders in index.html
-          sed -i "s|{{VERSION}}|$VERSION|g" index.html
-          sed -i "s|{{BUILD_DATE}}|$BUILD_DATE|g" index.html
-          sed -i "s|{{COMMIT_HASH}}|$COMMIT_HASH|g" index.html
+          # Show what we're replacing
+          echo "=== BEFORE replacement ==="
+          grep -n "{{VERSION}}" index.html || echo "No {{VERSION}} found"
+          grep -n "{{BUILD_DATE}}" index.html || echo "No {{BUILD_DATE}} found"
+
+          # Replace placeholders in index.html with more robust escaping
+          sed -i "s/{{VERSION}}/${VERSION}/g" index.html
+          sed -i "s/{{BUILD_DATE}}/${BUILD_DATE}/g" index.html
+          sed -i "s/{{COMMIT_HASH}}/${COMMIT_HASH}/g" index.html
 
           # Verify replacements worked
-          echo "=== Version footer after replacement ==="
+          echo "=== AFTER replacement ==="
+          grep -n "$VERSION" index.html || echo "Version replacement failed"
           grep -A2 -B2 "Version Footer" index.html
 
       - name: Deploy to GitHub Pages
