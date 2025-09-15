@@ -4,33 +4,39 @@ on:
   push:
     tags:
       - 'v*'  # Triggers on version tags like v2.4.2, v3.0.0, etc.
+    branches:
+      - main   # Also deploy on main branch pushes
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
     permissions:
-      contents: read
-      pages: write
-      id-token: write
+      contents: write  # Need write access to push to gh-pages branch
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Extract version from tag
+      - name: Extract version info
         run: |
-          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            # Tag-based deployment
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+            echo "DEPLOYMENT_TYPE=release" >> $GITHUB_ENV
+          else
+            # Main branch deployment
+            COMMIT_HASH=$(git rev-parse --short HEAD)
+            echo "VERSION=dev-$COMMIT_HASH" >> $GITHUB_ENV
+            echo "DEPLOYMENT_TYPE=development" >> $GITHUB_ENV
+          fi
           echo "BUILD_DATE=$(date -u +'%Y-%m-%d %H:%M UTC')" >> $GITHUB_ENV
           echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
       - name: Inject version and build info into HTML
         run: |
-          echo "Injecting version: $VERSION"
+          echo "Deploying $DEPLOYMENT_TYPE build"
+          echo "Version: $VERSION"
           echo "Build date: $BUILD_DATE"
           echo "Commit: $COMMIT_HASH"
 
@@ -43,56 +49,9 @@ jobs:
           echo "=== Version footer after replacement ==="
           grep -A2 -B2 "Version Footer" index.html
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: '.'
-
       - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-
-  # Optional: Also deploy on main branch pushes (development)
-  deploy-dev:
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Inject development version info
-        run: |
-          COMMIT_HASH=$(git rev-parse --short HEAD)
-          BUILD_DATE=$(date -u +'%Y-%m-%d %H:%M UTC')
-          VERSION="dev-$COMMIT_HASH"
-
-          echo "Injecting development version: $VERSION"
-
-          # Replace placeholders for development build
-          sed -i "s|{{VERSION}}|$VERSION|g" index.html
-          sed -i "s|{{BUILD_DATE}}|$BUILD_DATE|g" index.html
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          path: '.'
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
+          exclude_assets: '.github,DEPLOYMENT.md,.claude'
