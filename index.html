@@ -462,7 +462,7 @@
 
     <!-- Version Footer -->
     <div style="text-align: center; padding: 20px; opacity: 0.7; font-size: 0.8em; color: white;">
-        v2.6.1 • Cornering Analytics Edition • Built 2025-09-15 19:01 EST
+        v2.6.1 • Cornering Analytics Edition • Built 2025-09-15 19:03 EST
     </div>
 
     <!-- PWA Install Banner -->
@@ -1521,7 +1521,7 @@
 
             // Apply heavy low-pass filtering to isolate gravity from motion acceleration
             // This filters out quick movements and keeps only the static tilt component
-            const alpha = 0.9; // Heavy smoothing (90% old value, 10% new)
+            const alpha = 0.7; // Heavy smoothing (70% old value, 30% new) - 20% more responsive
 
             // Low-pass filter to isolate gravity from motion
             smoothedAccel.x = smoothedAccel.x * alpha + x * (1 - alpha);
