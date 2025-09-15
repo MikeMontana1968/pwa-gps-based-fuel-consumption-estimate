@@ -1,0 +1,90 @@
+name: Deploy Motorcycle Fuel Tracker
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on version tags like v2.4.2, v3.0.0, etc.
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        run: |
+          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          echo "BUILD_DATE=$(date -u +'%Y-%m-%d %H:%M UTC')" >> $GITHUB_ENV
+          echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+      - name: Inject version and build info into HTML
+        run: |
+          echo "Injecting version: $VERSION"
+          echo "Build date: $BUILD_DATE"
+          echo "Commit: $COMMIT_HASH"
+
+          # Replace placeholders in index.html
+          sed -i "s|{{VERSION}}|$VERSION|g" index.html
+          sed -i "s|{{BUILD_DATE}}|$BUILD_DATE|g" index.html
+          sed -i "s|{{COMMIT_HASH}}|$COMMIT_HASH|g" index.html
+
+          # Verify replacements worked
+          echo "=== Version footer after replacement ==="
+          grep -A2 -B2 "Version Footer" index.html
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  # Optional: Also deploy on main branch pushes (development)
+  deploy-dev:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Inject development version info
+        run: |
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          BUILD_DATE=$(date -u +'%Y-%m-%d %H:%M UTC')
+          VERSION="dev-$COMMIT_HASH"
+
+          echo "Injecting development version: $VERSION"
+
+          # Replace placeholders for development build
+          sed -i "s|{{VERSION}}|$VERSION|g" index.html
+          sed -i "s|{{BUILD_DATE}}|$BUILD_DATE|g" index.html
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
