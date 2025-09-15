@@ -69,3 +69,8 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./build
           exclude_assets: '.github,DEPLOYMENT.md,.claude'
+
+      - name: Verify deployment
+        run: |
+          echo "Deployment completed. Checking if gh-pages branch was updated..."
+          git ls-remote --heads origin gh-pages || echo "gh-pages branch not found"
