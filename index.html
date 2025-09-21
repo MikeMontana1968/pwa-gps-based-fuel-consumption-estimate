@@ -387,7 +387,7 @@
         </div>
         
         <div class="controls">
-            <button id="startBtn" onclick="startTracking()">Start Tracking</button>
+            <button id="startBtn" onclick="handleStartTracking()">Start Tracking</button>
             <button id="stopBtn" onclick="stopTracking()" disabled>Stop Tracking</button>
             <button id="pauseBtn" onclick="togglePause()" disabled>Pause</button>
             <button onclick="resetTrip()">Reset Trip</button>
@@ -486,7 +486,7 @@
 
     <!-- Version Footer -->
     <div style="text-align: center; padding: 20px; opacity: 0.7; font-size: 0.8em; color: white;">
-        v2.6.1 • Cornering Analytics Edition • Built 2025-09-21 11:40 EST
+        v2.6.1 • Cornering Analytics Edition • Built 2025-09-21 11:46 EST
     </div>
 
     <!-- PWA Install Banner -->
@@ -717,6 +717,22 @@
             return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
         }
+
+        // Wrapper function to handle async startTracking with proper error handling
+        function handleStartTracking() {
+            console.log('Start Tracking button clicked');
+            document.getElementById('status').textContent = 'Initializing tracking...';
+
+            startTracking().catch(error => {
+                console.error('Start tracking failed:', error);
+                document.getElementById('status').textContent = `Start tracking failed: ${error.message}`;
+
+                // Re-enable the start button on error
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('stopBtn').disabled = true;
+                document.getElementById('pauseBtn').disabled = true;
+            });
+        }
         
         // Load saved data
         window.addEventListener('load', () => {
@@ -883,10 +899,15 @@
         }
         
         async function startTracking() {
+            console.log('startTracking() called');
+
             if (!navigator.geolocation) {
+                console.log('GPS not supported');
                 document.getElementById('status').textContent = 'GPS not supported by this browser.';
-                return;
+                throw new Error('GPS not supported by this browser');
             }
+
+            console.log('GPS supported, checking iOS permissions...');
 
             // iOS 13+ requires explicit permission for motion sensors
             if (isIOS() && typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
@@ -936,6 +957,7 @@
             }
 
             // Request GPS permission and start tracking
+            console.log('Starting GPS tracking...');
             document.getElementById('status').textContent = 'Requesting GPS location permission...';
 
             const options = {
@@ -945,11 +967,14 @@
             };
 
             try {
+                console.log('Calling navigator.geolocation.watchPosition...');
                 watchId = navigator.geolocation.watchPosition(
                     handlePositionUpdate,
                     handlePositionError,
                     options
                 );
+
+                console.log('GPS watchPosition started, watchId:', watchId);
 
                 isTracking = true;
                 isPaused = false;
@@ -958,10 +983,12 @@
                 document.getElementById('pauseBtn').disabled = false;
                 document.getElementById('status').textContent = 'GPS tracking started. Waiting for position data...';
 
+                console.log('UI updated, tracking state set');
+
             } catch (error) {
-                console.log('GPS permission error:', error);
+                console.error('GPS permission error:', error);
                 document.getElementById('status').textContent = 'GPS permission error: ' + error.message;
-                return;
+                throw error; // Re-throw to be caught by handleStartTracking
             }
 
             // Keep screen on (where supported)
