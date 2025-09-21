@@ -12,7 +12,9 @@
       "Bash(git branch:*)",
       "Read(//c/Users/mikem/Downloads/**)",
       "Bash(git reset:*)",
-      "Bash(git tag:*)"
+      "Bash(git tag:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(git show:*)"
     ],
     "deny": [],
     "ask": []
