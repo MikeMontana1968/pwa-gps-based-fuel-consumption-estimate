@@ -494,7 +494,7 @@
 
     <!-- Version Footer -->
     <div style="text-align: center; padding: 20px; opacity: 0.7; font-size: 0.8em; color: white;">
-        v2.6.1 • Cornering Analytics Edition • Built 2025-09-21 12:24 EST
+        v2.6.1 • Cornering Analytics Edition • Built 2025-09-21 12:25 EST
     </div>
 
 
@@ -615,6 +615,9 @@
         let rpmAnimationId = null;
         let currentRPM = 0;
         let rpmEnabled = true;
+
+        // Wake lock to keep screen active
+        let wakeLock = null;
 
         // Gear shift detection variables
         let rpmHistory = [];
@@ -1020,7 +1023,23 @@
 
             // Keep screen on (where supported)
             if ('wakeLock' in navigator) {
-                navigator.wakeLock.request('screen').catch(() => {});
+                try {
+                    navigator.wakeLock.request('screen').then(lock => {
+                        wakeLock = lock;
+                        debugLog('✅ Wake lock activated - screen will stay on');
+
+                        // Handle wake lock release (user switches apps, etc.)
+                        wakeLock.addEventListener('release', () => {
+                            debugLog('⚠️ Wake lock released - screen may timeout');
+                        });
+                    }).catch(error => {
+                        debugLog(`❌ Wake lock failed: ${error.message}`);
+                    });
+                } catch (error) {
+                    debugLog(`❌ Wake lock not supported: ${error.message}`);
+                }
+            } else {
+                debugLog('⚠️ Wake lock API not available in this browser');
             }
             
             // Start RPM detection if enabled
@@ -1066,6 +1085,16 @@
             
             // Stop RPM detection
             stopRPMDetection();
+
+            // Release wake lock when stopping tracking
+            if (wakeLock) {
+                wakeLock.release().then(() => {
+                    debugLog('✅ Wake lock released - screen can timeout normally');
+                    wakeLock = null;
+                }).catch(error => {
+                    debugLog(`⚠️ Wake lock release failed: ${error.message}`);
+                });
+            }
 
             
             // Stop IMU motion detection
