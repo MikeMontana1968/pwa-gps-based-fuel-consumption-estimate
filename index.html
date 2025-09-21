@@ -224,7 +224,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>🔧 Built 2025-09-21 12:18 EST • Debugging iOS Issue</h1>
+        <h1>🔧 Built 2025-09-21 12:20 EST • Debugging iOS Issue</h1>
         
         <div class="metrics-grid">
             <div class="metric-card">
@@ -494,12 +494,12 @@
 
     <!-- Version Footer -->
     <div style="text-align: center; padding: 20px; opacity: 0.7; font-size: 0.8em; color: white;">
-        v2.6.1 • Cornering Analytics Edition • Built 2025-09-21 12:18 EST
+        v2.6.1 • Cornering Analytics Edition • Built 2025-09-21 12:20 EST
     </div>
 
     <!-- Build Info Banner -->
     <div id="buildBanner" style="display: block; position: fixed; top: 0; left: 0; right: 0; background: rgba(0,100,200,0.8); padding: 10px; text-align: center; color: white; z-index: 1000; font-weight: bold;">
-        🔧 Built 2025-09-21 12:18 EST • Debugging iOS Issue
+        🔧 Built 2025-09-21 12:20 EST • Debugging iOS Issue
     </div>
 
     <script>
@@ -801,7 +801,15 @@
                 fuelUsed = data.fuelUsed || 0;
                 tripDistance = data.tripDistance || 0;
                 tankCapacity = data.tankCapacity || 4.5;
-                calibration = data.calibration || calibration;
+                // Merge saved calibration with defaults to ensure all properties exist
+                if (data.calibration) {
+                    calibration = {
+                        highway: data.calibration.highway || calibration.highway,
+                        local: data.calibration.local || calibration.local,
+                        idle: data.calibration.idle || calibration.idle,
+                        engine: data.calibration.engine || calibration.engine
+                    };
+                }
                 
                 // Update displays
                 document.getElementById('tripDistance').textContent = tripDistance.toFixed(1);
