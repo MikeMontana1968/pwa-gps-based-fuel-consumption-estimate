@@ -494,7 +494,7 @@
 
     <!-- Version Footer -->
     <div style="text-align: center; padding: 20px; opacity: 0.7; font-size: 0.8em; color: white;">
-        v2.6.1 • Cornering Analytics Edition • Built 2025-09-21 11:56 EST
+        v2.6.1 • Cornering Analytics Edition • Built 2025-09-21 11:59 EST
     </div>
 
     <!-- PWA Install Banner -->
@@ -505,6 +505,13 @@
     </div>
 
     <script>
+        // IMMEDIATE TEST - Check if JavaScript is working at all
+        try {
+            alert('JavaScript is working! Loading app...');
+        } catch (e) {
+            console.error('JavaScript basic test failed:', e);
+        }
+
         // PWA Installation
         let deferredPrompt;
         let isInstalled = false;
