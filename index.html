@@ -224,7 +224,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>🔧 Built 2025-09-21 12:20 EST • Debugging iOS Issue</h1>
+        <h1>🔧 Built 2025-09-21 12:22 EST • Debugging iOS Issue</h1>
         
         <div class="metrics-grid">
             <div class="metric-card">
@@ -494,21 +494,16 @@
 
     <!-- Version Footer -->
     <div style="text-align: center; padding: 20px; opacity: 0.7; font-size: 0.8em; color: white;">
-        v2.6.1 • Cornering Analytics Edition • Built 2025-09-21 12:20 EST
+        v2.6.1 • Cornering Analytics Edition • Built 2025-09-21 12:22 EST
     </div>
 
     <!-- Build Info Banner -->
     <div id="buildBanner" style="display: block; position: fixed; top: 0; left: 0; right: 0; background: rgba(0,100,200,0.8); padding: 10px; text-align: center; color: white; z-index: 1000; font-weight: bold;">
-        🔧 Built 2025-09-21 12:20 EST • Debugging iOS Issue
+        🔧 Built 2025-09-21 12:22 EST • Debugging iOS Issue
     </div>
 
     <script>
-        // IMMEDIATE TEST - Check if JavaScript is working at all
-        try {
-            alert('JavaScript is working! Loading app...');
-        } catch (e) {
-            console.error('JavaScript basic test failed:', e);
-        }
+        // JavaScript is confirmed working - debug alerts removed
 
         // PWA Installation
         let deferredPrompt;
@@ -745,15 +740,6 @@
 
         // Wrapper function to handle async startTracking with proper error handling
         function handleStartTracking() {
-            // Force debug panel to show immediately
-            const debugPanel = document.getElementById('debugPanel');
-            if (debugPanel) {
-                debugPanel.style.display = 'block';
-            }
-
-            // Test basic alert first
-            alert('Button clicked! Debug panel should appear.');
-
             debugLog('🔘 Start Tracking button clicked');
             document.getElementById('status').textContent = 'Initializing tracking...';
 
