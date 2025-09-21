@@ -248,10 +248,19 @@
             </div>
             
             <div class="metric-card">
-                <div class="metric-label">Fuel Est</div>
-                <div class="metric-value" style="font-size: 0.8em; line-height: 1.2;">
-                    Used: <span id="fuelUsed">0g 0oz</span><br>
-                    Left: <span id="fuelRemaining">4g</span>
+                <div class="metric-label">Fuel Analysis</div>
+                <div class="metric-value" style="font-size: 0.7em; line-height: 1.1;">
+                    <div style="font-size: 1.1em; font-weight: bold;">
+                        <span id="fuelInjectionRate">--cc/stroke</span>
+                    </div>
+                    <div style="margin-top: 3px;">
+                        Load: <span id="throttleLoad">--%</span><br>
+                        AFR: <span id="estimatedAFR">--:1</span>
+                    </div>
+                    <div style="margin-top: 3px; font-size: 0.9em;">
+                        Used: <span id="fuelUsed">0g 0oz</span><br>
+                        Left: <span id="fuelRemaining">4g</span>
+                    </div>
                 </div>
             </div>
             
@@ -392,6 +401,12 @@
             GPS tracking not started. Click "Start Tracking" to begin.
         </div>
 
+        <!-- iOS Permission Helper -->
+        <div class="status" id="iosHelper" style="display: none; background: rgba(255, 255, 0, 0.1); border-color: rgba(255, 255, 0, 0.3);">
+            📱 <strong>iOS Users:</strong> You'll be prompted for location and motion sensor permissions.
+            Allow both for full functionality (lean angle, RPM, fuel analysis).
+        </div>
+
         <!-- Data Logging Status -->
         <div class="calibration" id="dataLogStatus" style="display: none;">
             <h3>📊 Data Logging Status</h3>
@@ -471,7 +486,7 @@
 
     <!-- Version Footer -->
     <div style="text-align: center; padding: 20px; opacity: 0.7; font-size: 0.8em; color: white;">
-        v2.6.1 • Cornering Analytics Edition • Built 2025-09-21 11:00 EST
+        v2.6.1 • Cornering Analytics Edition • Built 2025-09-21 11:40 EST
     </div>
 
     <!-- PWA Install Banner -->
@@ -639,10 +654,78 @@
             third: { frequency: 0, amplitude: 0 },
             fourth: { frequency: 0, amplitude: 0 }
         };
+
+        // Fuel injection estimation model (Victory Highball specific)
+        const FUEL_INJECTION_MODEL = {
+            // Engine specifications
+            displacement: 1634,              // Total displacement in cc
+            cylinders: 2,                    // V-twin
+            cylinderDisplacement: 817,       // cc per cylinder
+            compressionRatio: 9.4,
+
+            // Base fuel requirements (cc per stroke at stoichiometric)
+            baseFuelPerStroke: 2.2,          // At 80% VE, 14.7:1 AFR
+
+            // Load estimation parameters
+            accelThresholds: {
+                idle: 0.05,                  // < 0.05 m/s² = idle/cruise
+                light: 0.3,                  // 0.05-0.3 m/s² = light acceleration
+                moderate: 0.8,               // 0.3-0.8 m/s² = moderate acceleration
+                heavy: 1.5                   // > 0.8 m/s² = heavy acceleration
+            },
+
+            // RPM-based volumetric efficiency curve
+            veTable: {
+                950: 0.40,    // Idle
+                1500: 0.60,   // Low cruise
+                2000: 0.75,   // Highway cruise
+                2500: 0.82,   // Optimal cruise
+                3000: 0.88,   // Good power
+                4000: 0.93,   // Peak torque
+                5000: 0.90,   // High RPM
+                6000: 0.85,   // Redline approach
+                7000: 0.80    // Over-rev
+            },
+
+            // Air-fuel ratio based on load
+            afrTable: {
+                idle: 14.2,       // Lean for efficiency
+                cruise: 14.7,     // Stoichiometric
+                light: 13.8,      // Slightly rich
+                moderate: 12.8,   // Rich for power
+                heavy: 12.0       // Very rich for power/cooling
+            }
+        };
+
+        // Current fuel injection state
+        let currentFuelInjection = {
+            perStroke: 0,
+            perSecond: 0,
+            perMinute: 0,
+            throttleLoad: 0,
+            estimatedAFR: 14.7
+        };
+
+        // iOS detection and permission state
+        let iosPermissionsGranted = {
+            motion: false,
+            orientation: false,
+            location: false
+        };
+
+        function isIOS() {
+            return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        }
         
         // Load saved data
         window.addEventListener('load', () => {
             loadSavedData();
+
+            // Show iOS permission helper if on iOS
+            if (isIOS()) {
+                document.getElementById('iosHelper').style.display = 'block';
+            }
         });
         
         // Save data when page unloads
@@ -799,31 +882,88 @@
             return 0.5; // Default fallback
         }
         
-        function startTracking() {
+        async function startTracking() {
             if (!navigator.geolocation) {
                 document.getElementById('status').textContent = 'GPS not supported by this browser.';
                 return;
             }
-            
+
+            // iOS 13+ requires explicit permission for motion sensors
+            if (isIOS() && typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+                document.getElementById('status').textContent = 'Requesting iOS motion sensor permissions...';
+
+                try {
+                    const motionPermission = await DeviceMotionEvent.requestPermission();
+                    iosPermissionsGranted.motion = (motionPermission === 'granted');
+
+                    if (!iosPermissionsGranted.motion) {
+                        console.log('DeviceMotionEvent permission:', motionPermission);
+                    } else {
+                        console.log('DeviceMotionEvent permission granted');
+                    }
+                } catch (error) {
+                    console.log('DeviceMotionEvent permission error:', error);
+                    iosPermissionsGranted.motion = false;
+                }
+
+                // Also request orientation permission if available
+                if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    try {
+                        const orientationPermission = await DeviceOrientationEvent.requestPermission();
+                        iosPermissionsGranted.orientation = (orientationPermission === 'granted');
+
+                        if (!iosPermissionsGranted.orientation) {
+                            console.log('DeviceOrientationEvent permission denied');
+                        } else {
+                            console.log('DeviceOrientationEvent permission granted');
+                        }
+                    } catch (error) {
+                        console.log('DeviceOrientationEvent permission error:', error);
+                        iosPermissionsGranted.orientation = false;
+                    }
+                }
+
+                // Update status based on permissions
+                if (!iosPermissionsGranted.motion && !iosPermissionsGranted.orientation) {
+                    document.getElementById('status').textContent = 'Motion sensor permissions denied. GPS-only mode.';
+                } else if (!iosPermissionsGranted.motion) {
+                    document.getElementById('status').textContent = 'Limited motion sensors. Some features may be unavailable.';
+                }
+            } else if (!isIOS()) {
+                // Non-iOS devices should have sensor access
+                iosPermissionsGranted.motion = true;
+                iosPermissionsGranted.orientation = true;
+            }
+
+            // Request GPS permission and start tracking
+            document.getElementById('status').textContent = 'Requesting GPS location permission...';
+
             const options = {
                 enableHighAccuracy: true,
                 timeout: 10000,
                 maximumAge: 1000
             };
-            
-            watchId = navigator.geolocation.watchPosition(
-                handlePositionUpdate,
-                handlePositionError,
-                options
-            );
-            
-            isTracking = true;
-            isPaused = false;
-            document.getElementById('startBtn').disabled = true;
-            document.getElementById('stopBtn').disabled = false;
-            document.getElementById('pauseBtn').disabled = false;
-            document.getElementById('status').textContent = 'GPS tracking started. Waiting for position data...';
-            
+
+            try {
+                watchId = navigator.geolocation.watchPosition(
+                    handlePositionUpdate,
+                    handlePositionError,
+                    options
+                );
+
+                isTracking = true;
+                isPaused = false;
+                document.getElementById('startBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = false;
+                document.getElementById('pauseBtn').disabled = false;
+                document.getElementById('status').textContent = 'GPS tracking started. Waiting for position data...';
+
+            } catch (error) {
+                console.log('GPS permission error:', error);
+                document.getElementById('status').textContent = 'GPS permission error: ' + error.message;
+                return;
+            }
+
             // Keep screen on (where supported)
             if ('wakeLock' in navigator) {
                 navigator.wakeLock.request('screen').catch(() => {});
@@ -831,12 +971,21 @@
             
             // Start RPM detection if enabled
             if (rpmEnabled && calibration.engine.enableRPM) {
-                startRPMDetection();
+                try {
+                    startRPMDetection();
+                } catch (error) {
+                    console.log('RPM detection failed:', error);
+                    document.getElementById('status').textContent += ' (RPM detection unavailable)';
+                }
             }
 
-            
-            // Start IMU motion detection
-            startMotionDetection();
+            // Start IMU motion detection with error handling
+            try {
+                startMotionDetection();
+            } catch (error) {
+                console.log('Motion detection failed:', error);
+                document.getElementById('status').textContent += ' (Motion sensors unavailable)';
+            }
 
             // Start daylight tracking
             startDaylightTracking();
@@ -999,6 +1148,9 @@
 
             // Update turn safety calculations
             updateTurnSafetyDisplay();
+
+            // Update fuel injection estimates
+            updateFuelInjectionEstimate();
         }
         
         function resetTrip() {
@@ -1833,6 +1985,161 @@
             }
         }
 
+        // Fuel Injection Estimation Functions
+        function estimateThrottleLoad(yAcceleration, rpm, speed) {
+            // Normalize Y-axis acceleration to estimate throttle position
+            const accel = Math.max(0, yAcceleration); // Only consider forward acceleration
+            const { accelThresholds } = FUEL_INJECTION_MODEL;
+
+            // Base load estimation from acceleration
+            let loadPercent = 0;
+            if (accel < accelThresholds.idle) {
+                loadPercent = 0.05 + (accel / accelThresholds.idle) * 0.15; // 5-20% for idle/cruise
+            } else if (accel < accelThresholds.light) {
+                loadPercent = 0.20 + ((accel - accelThresholds.idle) / (accelThresholds.light - accelThresholds.idle)) * 0.25; // 20-45%
+            } else if (accel < accelThresholds.moderate) {
+                loadPercent = 0.45 + ((accel - accelThresholds.light) / (accelThresholds.moderate - accelThresholds.light)) * 0.30; // 45-75%
+            } else {
+                loadPercent = 0.75 + Math.min(0.25, ((accel - accelThresholds.moderate) / (accelThresholds.heavy - accelThresholds.moderate)) * 0.25); // 75-100%
+            }
+
+            // Adjust for RPM (higher RPM = more airflow potential)
+            const rpmFactor = rpm > 2000 ? Math.min(1.2, rpm / 4000) : 0.8;
+            loadPercent *= rpmFactor;
+
+            // Speed-based adjustment (highway vs city)
+            if (speed > 45) {
+                loadPercent *= 0.9; // Highway cruising is more efficient
+            }
+
+            return Math.min(1.0, Math.max(0.05, loadPercent));
+        }
+
+        function getLoadCategory(throttleLoad) {
+            if (throttleLoad < 0.15) return 'idle';
+            if (throttleLoad < 0.35) return 'cruise';
+            if (throttleLoad < 0.60) return 'light';
+            if (throttleLoad < 0.85) return 'moderate';
+            return 'heavy';
+        }
+
+        function interpolateVolumetricEfficiency(rpm) {
+            const { veTable } = FUEL_INJECTION_MODEL;
+            const rpmPoints = Object.keys(veTable).map(Number).sort((a, b) => a - b);
+
+            // Handle edge cases
+            if (rpm <= rpmPoints[0]) return veTable[rpmPoints[0]];
+            if (rpm >= rpmPoints[rpmPoints.length - 1]) return veTable[rpmPoints[rpmPoints.length - 1]];
+
+            // Linear interpolation between points
+            for (let i = 0; i < rpmPoints.length - 1; i++) {
+                const lowerRPM = rpmPoints[i];
+                const upperRPM = rpmPoints[i + 1];
+
+                if (rpm >= lowerRPM && rpm <= upperRPM) {
+                    const ratio = (rpm - lowerRPM) / (upperRPM - lowerRPM);
+                    return veTable[lowerRPM] + ratio * (veTable[upperRPM] - veTable[lowerRPM]);
+                }
+            }
+
+            return 0.8; // Fallback
+        }
+
+        function calculateFuelInjectionPerStroke(rpm, yAcceleration, speed) {
+            if (rpm < 500) return 0; // Engine not running
+
+            const { baseFuelPerStroke, afrTable } = FUEL_INJECTION_MODEL;
+
+            // Estimate throttle load from Y-axis acceleration
+            const throttleLoad = estimateThrottleLoad(yAcceleration, rpm, speed);
+            const loadCategory = getLoadCategory(throttleLoad);
+
+            // Get volumetric efficiency for current RPM
+            const volumetricEfficiency = interpolateVolumetricEfficiency(rpm);
+
+            // Get air-fuel ratio for current load
+            const targetAFR = afrTable[loadCategory];
+
+            // Calculate fuel per stroke
+            // Base formula: fuel = (base_fuel × VE × load × AFR_correction)
+            const veCorrection = volumetricEfficiency / 0.8; // Normalize to base VE
+            const loadCorrection = 0.3 + (throttleLoad * 0.7); // Scale from 30% to 100%
+            const afrCorrection = 14.7 / targetAFR; // Richer = more fuel
+
+            const fuelPerStroke = baseFuelPerStroke * veCorrection * loadCorrection * afrCorrection;
+
+            return {
+                fuelPerStroke: Math.max(0.5, Math.min(4.5, fuelPerStroke)), // Clamp to realistic range
+                throttleLoad: throttleLoad,
+                volumetricEfficiency: volumetricEfficiency,
+                targetAFR: targetAFR,
+                loadCategory: loadCategory
+            };
+        }
+
+        function updateFuelInjectionEstimate() {
+            const rpm = currentRPM || 0;
+            const speed = parseFloat(document.getElementById('currentSpeed').textContent) || 0;
+
+            // Get Y-axis acceleration (forward/backward)
+            const yAcceleration = currentAccel.y || 0;
+
+            if (rpm > 500) { // Only calculate when engine is running
+                const injection = calculateFuelInjectionPerStroke(rpm, yAcceleration, speed);
+
+                // Calculate rates
+                const strokesPerSecond = (rpm / 60) * (FUEL_INJECTION_MODEL.cylinders / 2); // 4-stroke engine
+                const fuelPerSecond = injection.fuelPerStroke * strokesPerSecond;
+                const fuelPerMinute = fuelPerSecond * 60;
+
+                // Update current state
+                currentFuelInjection = {
+                    perStroke: injection.fuelPerStroke,
+                    perSecond: fuelPerSecond,
+                    perMinute: fuelPerMinute,
+                    throttleLoad: injection.throttleLoad,
+                    estimatedAFR: injection.targetAFR,
+                    loadCategory: injection.loadCategory,
+                    volumetricEfficiency: injection.volumetricEfficiency
+                };
+
+                // Update display
+                updateFuelInjectionDisplay();
+            } else {
+                // Engine not running
+                currentFuelInjection = {
+                    perStroke: 0,
+                    perSecond: 0,
+                    perMinute: 0,
+                    throttleLoad: 0,
+                    estimatedAFR: 14.7,
+                    loadCategory: 'idle',
+                    volumetricEfficiency: 0
+                };
+                updateFuelInjectionDisplay();
+            }
+        }
+
+        function updateFuelInjectionDisplay() {
+            // Update existing fuel displays with injection data
+            if (currentFuelInjection.perStroke > 0) {
+                const injectionElement = document.getElementById('fuelInjectionRate');
+                if (injectionElement) {
+                    injectionElement.textContent = `${currentFuelInjection.perStroke.toFixed(2)}cc/stroke`;
+                }
+
+                const loadElement = document.getElementById('throttleLoad');
+                if (loadElement) {
+                    loadElement.textContent = `${(currentFuelInjection.throttleLoad * 100).toFixed(0)}%`;
+                }
+
+                const afrElement = document.getElementById('estimatedAFR');
+                if (afrElement) {
+                    afrElement.textContent = `${currentFuelInjection.estimatedAFR.toFixed(1)}:1`;
+                }
+            }
+        }
+
         // GPS Turn Detection Functions
         function calculateBearing(lat1, lon1, lat2, lon2) {
             // Calculate bearing between two GPS points
@@ -2337,6 +2644,15 @@
                     redlineRPM: calibration.engine.redlineRPM,
                     enableRPM: calibration.engine.enableRPM
                 },
+                fuelInjection: {
+                    perStroke: Math.round(currentFuelInjection.perStroke * 100) / 100,
+                    perSecond: Math.round(currentFuelInjection.perSecond * 100) / 100,
+                    perMinute: Math.round(currentFuelInjection.perMinute * 100) / 100,
+                    throttleLoad: Math.round(currentFuelInjection.throttleLoad * 1000) / 1000,
+                    estimatedAFR: Math.round(currentFuelInjection.estimatedAFR * 10) / 10,
+                    loadCategory: currentFuelInjection.loadCategory,
+                    volumetricEfficiency: Math.round(currentFuelInjection.volumetricEfficiency * 1000) / 1000
+                },
                 calibration: {
                     highway: calibration.highway,
                     local: calibration.local,
@@ -2414,6 +2730,10 @@
                 'GPS_Bearing_deg', 'Turn_Active', 'Turn_Direction', 'Turn_Bearing_Change_deg',
                 'Turn_Safety_Zone', 'Turn_Warning_Active',
 
+                // Fuel injection estimation data
+                'Fuel_Per_Stroke_cc', 'Fuel_Per_Second_cc', 'Fuel_Per_Minute_cc',
+                'Throttle_Load_Percent', 'Estimated_AFR', 'Load_Category', 'Volumetric_Efficiency',
+
                 // Computed values (derived from sensors and settings)
                 'Speed_mph', 'RPM', 'Distance_miles', 'MPG', 'Fuel_Used_gal',
                 'Trip_Distance_miles', 'Fuel_Remaining_gal', 'Estimated_Range_miles'
@@ -2468,6 +2788,15 @@
                     currentTurn ? currentTurn.maxBearingChange : '',
                     document.getElementById('turnSafetyZone') ? document.getElementById('turnSafetyZone').textContent : '',
                     turnWarningActive ? 'YES' : 'NO',
+
+                    // Fuel injection estimation data
+                    entry.fuelInjection ? entry.fuelInjection.perStroke : '',
+                    entry.fuelInjection ? entry.fuelInjection.perSecond : '',
+                    entry.fuelInjection ? entry.fuelInjection.perMinute : '',
+                    entry.fuelInjection ? (entry.fuelInjection.throttleLoad * 100).toFixed(1) : '',
+                    entry.fuelInjection ? entry.fuelInjection.estimatedAFR : '',
+                    entry.fuelInjection ? entry.fuelInjection.loadCategory : '',
+                    entry.fuelInjection ? entry.fuelInjection.volumetricEfficiency : '',
 
                     // Computed values (derived from sensors and settings)
                     entry.speed,
