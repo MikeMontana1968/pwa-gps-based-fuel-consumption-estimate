@@ -494,7 +494,7 @@
 
     <!-- Version Footer -->
     <div style="text-align: center; padding: 20px; opacity: 0.7; font-size: 0.8em; color: white;">
-        v2.6.1 • Cornering Analytics Edition • Built 2025-09-21 11:51 EST
+        v2.6.1 • Cornering Analytics Edition • Built 2025-09-21 11:56 EST
     </div>
 
     <!-- PWA Install Banner -->
@@ -743,6 +743,15 @@
 
         // Wrapper function to handle async startTracking with proper error handling
         function handleStartTracking() {
+            // Force debug panel to show immediately
+            const debugPanel = document.getElementById('debugPanel');
+            if (debugPanel) {
+                debugPanel.style.display = 'block';
+            }
+
+            // Test basic alert first
+            alert('Button clicked! Debug panel should appear.');
+
             debugLog('🔘 Start Tracking button clicked');
             document.getElementById('status').textContent = 'Initializing tracking...';
 
