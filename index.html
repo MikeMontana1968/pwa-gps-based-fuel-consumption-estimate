@@ -224,7 +224,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>🔧 Built 2025-09-21 12:13 EST • Debugging iOS Issue</h1>
+        <h1>🔧 Built 2025-09-21 12:18 EST • Debugging iOS Issue</h1>
         
         <div class="metrics-grid">
             <div class="metric-card">
@@ -494,12 +494,12 @@
 
     <!-- Version Footer -->
     <div style="text-align: center; padding: 20px; opacity: 0.7; font-size: 0.8em; color: white;">
-        v2.6.1 • Cornering Analytics Edition • Built 2025-09-21 12:13 EST
+        v2.6.1 • Cornering Analytics Edition • Built 2025-09-21 12:18 EST
     </div>
 
     <!-- Build Info Banner -->
     <div id="buildBanner" style="display: block; position: fixed; top: 0; left: 0; right: 0; background: rgba(0,100,200,0.8); padding: 10px; text-align: center; color: white; z-index: 1000; font-weight: bold;">
-        🔧 Built 2025-09-21 12:13 EST • Debugging iOS Issue
+        🔧 Built 2025-09-21 12:18 EST • Debugging iOS Issue
     </div>
 
     <script>
@@ -1526,7 +1526,7 @@
             // Detect gear shift conditions:
             // 1. Significant RPM drop (>15% and >300 RPM) over short time
             // 2. Current speed is maintained or increasing (rules out deceleration)
-            const currentSpeed = parseFloat(document.getElementById('currentSpeed').textContent) || 0;
+            // currentSpeed already declared above
 
             if (rpmDropPercent > 0.15 && rpmDrop > 300 && currentSpeed > 10) {
                 // Check if speed is stable/increasing (not just braking)
