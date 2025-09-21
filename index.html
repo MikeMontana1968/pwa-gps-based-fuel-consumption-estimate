@@ -310,6 +310,9 @@
                 </div>
                 <div class="metric-label">
                     <span id="lateralGForce">0.0</span>g
+                    <div style="font-size: 0.7em; margin-top: 2px;">
+                        <span id="turnIndicator" style="color: #888;">--</span>
+                    </div>
                 </div>
             </div>
 
@@ -318,6 +321,20 @@
                 <div class="metric-label">Remaining Daylight</div>
                 <div class="metric-value" id="remainingDaylight">--:--</div>
                 <div class="metric-label">Hours:Minutes</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">Safe Turn Radius</div>
+                <div class="metric-value" style="font-size: 0.8em; line-height: 1.2;">
+                    <div id="safeRadius" style="font-size: 1.4em; font-weight: bold;">--</div>
+                    <div style="font-size: 0.7em; margin-top: 5px;">
+                        Zone: <span id="turnSafetyZone" style="color: #00ff00;">SAFE</span>
+                    </div>
+                    <div style="font-size: 0.6em; margin-top: 3px;">
+                        Max: <span id="maxSafeSpeed">--</span> mph
+                    </div>
+                </div>
+                <div class="metric-label">Feet @ Current Speed</div>
             </div>
 
             <div class="metric-card" style="display: none;">
@@ -454,7 +471,7 @@
 
     <!-- Version Footer -->
     <div style="text-align: center; padding: 20px; opacity: 0.7; font-size: 0.8em; color: white;">
-        v2.6.1 • Cornering Analytics Edition • Built 2025-09-21 10:10 EST
+        v2.6.1 • Cornering Analytics Edition • Built 2025-09-21 11:00 EST
     </div>
 
     <!-- PWA Install Banner -->
@@ -590,6 +607,30 @@
         let gearShiftDetected = false;
         let gearShiftEndTime = 0;
 
+        // Turn safety calculation variables
+        let turnSafetySettings = {
+            roadSurface: 0.9,        // Dry asphalt coefficient
+            tireCondition: 1.0,      // New tire multiplier
+            riderExperience: 0.8,    // Conservative for street riding
+            safetyMargin: 1.2        // 20% safety margin
+        };
+
+        // GPS-based turn detection variables
+        let gpsTrackHistory = [];    // Position/bearing history for turn detection
+        let currentTurn = null;      // Active turn state
+        let turnWarningActive = false;
+        let lastGPSBearing = null;
+        let bearingHistory = [];
+
+        // Turn detection thresholds
+        const TURN_DETECTION = {
+            MIN_SPEED: 8,                    // Minimum speed to detect turns (mph)
+            BEARING_CHANGE_THRESHOLD: 15,    // Degrees of bearing change to start turn
+            TURN_COMPLETION_THRESHOLD: 8,    // Degrees to consider turn complete
+            HISTORY_SECONDS: 10,             // Seconds of GPS history to maintain
+            SMOOTH_WINDOW: 3,                // GPS readings to smooth for bearing calculation
+            WARNING_LEAD_TIME: 2             // Seconds ahead to warn for potential issues
+        };
 
         // Audio harmonic tracking for logging
         let currentHarmonics = {
@@ -867,8 +908,11 @@
                     // Filter out unrealistic speeds and poor GPS accuracy
                     if (speed <= 150 && position.coords.accuracy <= 20) { // Stricter accuracy requirement
                         updateMetrics(speed, timeDelta, distance);
+
+                        // Update GPS turn detection
+                        updateGPSTrackHistory(currentPosition, speed, currentTime);
                     }
-                    
+
                     lastTime = currentTime;
                     lastPosition = currentPosition;
                 }
@@ -952,6 +996,9 @@
                 estimatedRange > 0 ? Math.round(estimatedRange) : '0';
 
             document.getElementById('tripDistance').textContent = tripDistance.toFixed(1);
+
+            // Update turn safety calculations
+            updateTurnSafetyDisplay();
         }
         
         function resetTrip() {
@@ -1694,6 +1741,363 @@
             currentLateralG = 0;
         }
 
+        // Turn Safety Calculation Functions
+        function calculateSafeTurningRadius(speedMph, maxLateralG = null) {
+            // Convert speed from mph to m/s
+            const speedMs = speedMph * 0.44704;
+
+            // Use physics-based safe lateral G limit if not provided
+            if (!maxLateralG) {
+                const { roadSurface, tireCondition, riderExperience, safetyMargin } = turnSafetySettings;
+                maxLateralG = (roadSurface * tireCondition * riderExperience) / safetyMargin;
+            }
+
+            // Physics: radius = v² / (lateral_g × gravity)
+            const gravity = 9.81; // m/s²
+            const radiusMeters = (speedMs * speedMs) / (maxLateralG * gravity);
+
+            // Convert to feet for display
+            const radiusFeet = radiusMeters * 3.28084;
+
+            return {
+                meters: radiusMeters,
+                feet: radiusFeet,
+                maxLateralG: maxLateralG
+            };
+        }
+
+        function calculateMaxSafeSpeed(radiusFeet, maxLateralG = null) {
+            // Convert radius to meters
+            const radiusMeters = radiusFeet / 3.28084;
+
+            // Use physics-based safe lateral G limit if not provided
+            if (!maxLateralG) {
+                const { roadSurface, tireCondition, riderExperience, safetyMargin } = turnSafetySettings;
+                maxLateralG = (roadSurface * tireCondition * riderExperience) / safetyMargin;
+            }
+
+            // Physics: v = √(lateral_g × gravity × radius)
+            const gravity = 9.81; // m/s²
+            const speedMs = Math.sqrt(maxLateralG * gravity * radiusMeters);
+
+            // Convert to mph
+            const speedMph = speedMs / 0.44704;
+
+            return speedMph;
+        }
+
+        function getTurnSafetyZone(currentLateralG, currentLeanAngle) {
+            // Progressive safety zones based on lateral G and lean angle
+            const leanAngleAbs = Math.abs(currentLeanAngle);
+
+            // Define zone thresholds
+            if (currentLateralG < 0.5 && leanAngleAbs < 26) {
+                return { zone: 'SAFE', color: '#00ff00' };
+            } else if (currentLateralG < 0.7 && leanAngleAbs < 35) {
+                return { zone: 'CAUTION', color: '#ffff00' };
+            } else if (currentLateralG < 0.9 && leanAngleAbs < 42) {
+                return { zone: 'WARNING', color: '#ff8800' };
+            } else {
+                return { zone: 'DANGER', color: '#ff0000' };
+            }
+        }
+
+        function updateTurnSafetyDisplay() {
+            const currentSpeed = parseFloat(document.getElementById('currentSpeed').textContent) || 0;
+            const currentLateralG = Math.abs(parseFloat(document.getElementById('lateralGForce').textContent) || 0);
+
+            // Get current lean angle from the roll calculation
+            const rollAngle = Math.abs(currentRollAngle || 0);
+
+            if (currentSpeed > 5) { // Only calculate for meaningful speeds
+                // Calculate safe turning radius at current speed
+                const safeRadius = calculateSafeTurningRadius(currentSpeed);
+
+                // Calculate maximum safe speed for a tight turn (50ft radius - city intersection)
+                const maxSafeSpeedTight = calculateMaxSafeSpeed(50);
+
+                // Get safety zone assessment
+                const safetyZone = getTurnSafetyZone(currentLateralG, rollAngle);
+
+                // Update display
+                document.getElementById('safeRadius').textContent = Math.round(safeRadius.feet);
+                document.getElementById('maxSafeSpeed').textContent = Math.round(maxSafeSpeedTight);
+                document.getElementById('turnSafetyZone').textContent = safetyZone.zone;
+                document.getElementById('turnSafetyZone').style.color = safetyZone.color;
+            } else {
+                // Reset display when not moving
+                document.getElementById('safeRadius').textContent = '--';
+                document.getElementById('maxSafeSpeed').textContent = '--';
+                document.getElementById('turnSafetyZone').textContent = 'SAFE';
+                document.getElementById('turnSafetyZone').style.color = '#00ff00';
+            }
+        }
+
+        // GPS Turn Detection Functions
+        function calculateBearing(lat1, lon1, lat2, lon2) {
+            // Calculate bearing between two GPS points
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const lat1Rad = lat1 * Math.PI / 180;
+            const lat2Rad = lat2 * Math.PI / 180;
+
+            const y = Math.sin(dLon) * Math.cos(lat2Rad);
+            const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) -
+                      Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
+
+            let bearing = Math.atan2(y, x) * 180 / Math.PI;
+            return (bearing + 360) % 360; // Normalize to 0-360 degrees
+        }
+
+        function normalizeBearingDifference(bearing1, bearing2) {
+            // Calculate the smallest angle difference between two bearings
+            let diff = bearing2 - bearing1;
+            if (diff > 180) diff -= 360;
+            if (diff < -180) diff += 360;
+            return diff;
+        }
+
+        function updateGPSTrackHistory(position, speed, timestamp) {
+            const currentSpeed = speed || parseFloat(document.getElementById('currentSpeed').textContent) || 0;
+
+            // Only track when moving at meaningful speeds
+            if (currentSpeed < TURN_DETECTION.MIN_SPEED) {
+                return;
+            }
+
+            // Add current position to history
+            gpsTrackHistory.push({
+                lat: position.lat,
+                lon: position.lon,
+                speed: currentSpeed,
+                timestamp: timestamp,
+                accuracy: position.accuracy
+            });
+
+            // Maintain history window
+            const cutoffTime = timestamp - (TURN_DETECTION.HISTORY_SECONDS * 1000);
+            gpsTrackHistory = gpsTrackHistory.filter(point => point.timestamp > cutoffTime);
+
+            // Calculate bearing if we have enough history
+            if (gpsTrackHistory.length >= TURN_DETECTION.SMOOTH_WINDOW) {
+                const recentPoints = gpsTrackHistory.slice(-TURN_DETECTION.SMOOTH_WINDOW);
+                const startPoint = recentPoints[0];
+                const endPoint = recentPoints[recentPoints.length - 1];
+
+                // Only calculate bearing for meaningful distance (avoid GPS noise)
+                const distance = calculateDistance(startPoint, endPoint);
+                if (distance > 0.001) { // More than ~5 feet
+                    const currentBearing = calculateBearing(
+                        startPoint.lat, startPoint.lon,
+                        endPoint.lat, endPoint.lon
+                    );
+
+                    // Update bearing history
+                    bearingHistory.push({
+                        bearing: currentBearing,
+                        timestamp: timestamp,
+                        speed: currentSpeed
+                    });
+
+                    // Maintain bearing history
+                    bearingHistory = bearingHistory.filter(b => b.timestamp > cutoffTime);
+
+                    lastGPSBearing = currentBearing;
+
+                    // Detect turns
+                    detectGPSTurn(timestamp, currentSpeed);
+                }
+            }
+        }
+
+        function detectGPSTurn(timestamp, currentSpeed) {
+            if (bearingHistory.length < 2) return;
+
+            // Get bearing change over last few seconds
+            const recentWindow = bearingHistory.filter(b =>
+                b.timestamp > timestamp - 3000 // Last 3 seconds
+            );
+
+            if (recentWindow.length < 2) return;
+
+            const startBearing = recentWindow[0].bearing;
+            const endBearing = recentWindow[recentWindow.length - 1].bearing;
+            const bearingChange = Math.abs(normalizeBearingDifference(startBearing, endBearing));
+
+            // Check for turn initiation
+            if (!currentTurn && bearingChange > TURN_DETECTION.BEARING_CHANGE_THRESHOLD) {
+                currentTurn = {
+                    startTime: timestamp,
+                    startBearing: startBearing,
+                    direction: normalizeBearingDifference(startBearing, endBearing) > 0 ? 'right' : 'left',
+                    maxBearingChange: bearingChange,
+                    entrySpeed: currentSpeed,
+                    peakLateralG: 0,
+                    peakLeanAngle: 0
+                };
+
+                console.log(`Turn initiated: ${currentTurn.direction}, ${bearingChange.toFixed(1)}° change at ${currentSpeed} mph`);
+                evaluateTurnSafety();
+            }
+
+            // Update active turn
+            if (currentTurn) {
+                const totalChange = Math.abs(normalizeBearingDifference(currentTurn.startBearing, endBearing));
+                currentTurn.maxBearingChange = Math.max(currentTurn.maxBearingChange, totalChange);
+
+                // Track peak values during turn
+                const currentLateralG = Math.abs(parseFloat(document.getElementById('lateralGForce').textContent) || 0);
+                const currentLeanAngle = Math.abs(currentRollAngle || 0);
+                currentTurn.peakLateralG = Math.max(currentTurn.peakLateralG, currentLateralG);
+                currentTurn.peakLeanAngle = Math.max(currentTurn.peakLeanAngle, currentLeanAngle);
+
+                // Check for turn completion (bearing stabilizes)
+                const recentChangeWindow = bearingHistory.filter(b =>
+                    b.timestamp > timestamp - 1500 // Last 1.5 seconds
+                );
+
+                if (recentChangeWindow.length >= 2) {
+                    const recentStart = recentChangeWindow[0].bearing;
+                    const recentEnd = recentChangeWindow[recentChangeWindow.length - 1].bearing;
+                    const recentChange = Math.abs(normalizeBearingDifference(recentStart, recentEnd));
+
+                    if (recentChange < TURN_DETECTION.TURN_COMPLETION_THRESHOLD) {
+                        completeTurn(timestamp);
+                    }
+                }
+            }
+        }
+
+        function evaluateTurnSafety() {
+            if (!currentTurn) return;
+
+            const currentSpeed = parseFloat(document.getElementById('currentSpeed').textContent) || 0;
+            const currentLateralG = Math.abs(parseFloat(document.getElementById('lateralGForce').textContent) || 0);
+            const currentLeanAngle = Math.abs(currentRollAngle || 0);
+
+            // Estimate turn radius based on speed and bearing change rate
+            const bearingChangeRate = currentTurn.maxBearingChange / ((Date.now() - currentTurn.startTime) / 1000);
+            const estimatedRadius = (currentSpeed * 0.44704) / (bearingChangeRate * Math.PI / 180); // rough approximation
+
+            // Check various warning conditions
+            const warnings = [];
+
+            // Speed warning for current turn radius
+            if (estimatedRadius > 0 && estimatedRadius < 500) { // Only for reasonable radius estimates
+                const maxSafeSpeed = calculateMaxSafeSpeed(estimatedRadius * 3.28084); // Convert to feet
+                if (currentSpeed > maxSafeSpeed * 1.1) { // 10% buffer
+                    warnings.push(`SPEED: ${currentSpeed} mph too fast for ${Math.round(estimatedRadius * 3.28084)}ft radius`);
+                }
+            }
+
+            // Lean angle warnings
+            if (currentLeanAngle > 35) {
+                warnings.push(`LEAN: ${currentLeanAngle.toFixed(1)}° approaching limits`);
+            }
+
+            // Lateral G warnings
+            if (currentLateralG > 0.7) {
+                warnings.push(`G-FORCE: ${currentLateralG.toFixed(2)}g high cornering load`);
+            }
+
+            // Progressive lean angle increase
+            if (currentTurn.peakLeanAngle > 0 && currentLeanAngle > currentTurn.peakLeanAngle + 5) {
+                warnings.push(`LEAN INCREASE: Adding ${(currentLeanAngle - currentTurn.peakLeanAngle).toFixed(1)}° mid-turn`);
+            }
+
+            // Update warning state
+            if (warnings.length > 0 && !turnWarningActive) {
+                turnWarningActive = true;
+                console.log('Turn Warning:', warnings.join(' | '));
+                displayTurnWarning(warnings);
+            } else if (warnings.length === 0 && turnWarningActive) {
+                turnWarningActive = false;
+                clearTurnWarning();
+            }
+
+            // Always update turn indicator during active turns
+            updateTurnIndicator();
+        }
+
+        function completeTurn(timestamp) {
+            if (!currentTurn) return;
+
+            const duration = (timestamp - currentTurn.startTime) / 1000;
+            console.log(`Turn completed: ${currentTurn.direction}, ` +
+                       `${currentTurn.maxBearingChange.toFixed(1)}° total, ` +
+                       `${duration.toFixed(1)}s, ` +
+                       `peak lean: ${currentTurn.peakLeanAngle.toFixed(1)}°, ` +
+                       `peak G: ${currentTurn.peakLateralG.toFixed(2)}g`);
+
+            // Log turn data for analytics
+            logTurnData(currentTurn, duration);
+
+            // Reset turn state
+            currentTurn = null;
+            turnWarningActive = false;
+            clearTurnWarning();
+        }
+
+        function logTurnData(turn, duration) {
+            // Add turn data to existing data logging if active
+            if (isDataLogging && turn) {
+                const turnLogEntry = {
+                    timestamp: Date.now(),
+                    type: 'turn_completed',
+                    direction: turn.direction,
+                    maxBearingChange: turn.maxBearingChange,
+                    duration: duration,
+                    entrySpeed: turn.entrySpeed,
+                    peakLateralG: turn.peakLateralG,
+                    peakLeanAngle: turn.peakLeanAngle
+                };
+
+                // This would integrate with existing logging system
+                console.log('Turn logged:', turnLogEntry);
+            }
+        }
+
+        function displayTurnWarning(warnings) {
+            // Update the turn safety zone display with warning color
+            const zoneElement = document.getElementById('turnSafetyZone');
+            if (zoneElement) {
+                zoneElement.textContent = 'WARNING';
+                zoneElement.style.color = '#ff8800';
+                zoneElement.style.fontWeight = 'bold';
+            }
+
+            // Update turn indicator
+            updateTurnIndicator();
+
+            // Could add audio warning here if needed
+            // playTurnWarningSound();
+        }
+
+        function clearTurnWarning() {
+            // Reset turn warning display
+            updateTurnSafetyDisplay(); // This will recalculate the normal safety zone
+            updateTurnIndicator();
+        }
+
+        function updateTurnIndicator() {
+            const turnIndicator = document.getElementById('turnIndicator');
+            if (!turnIndicator) return;
+
+            if (currentTurn) {
+                const direction = currentTurn.direction;
+                const bearingChange = currentTurn.maxBearingChange.toFixed(0);
+                const arrow = direction === 'left' ? '← LEFT' : 'RIGHT →';
+                const color = turnWarningActive ? '#ff8800' : '#00ff00';
+
+                turnIndicator.textContent = `${arrow} ${bearingChange}°`;
+                turnIndicator.style.color = color;
+                turnIndicator.style.fontWeight = 'bold';
+            } else {
+                turnIndicator.textContent = '--';
+                turnIndicator.style.color = '#888';
+                turnIndicator.style.fontWeight = 'normal';
+            }
+        }
+
         // Daylight Calculation Functions
         function calculateSunset(latitude, longitude, date = new Date()) {
             // Simplified sunset calculation using the sunrise equation
@@ -2006,6 +2410,10 @@
                 'Audio_Dominant_Freq_Hz', 'Audio_Dominant_Amplitude', 'Audio_2nd_Freq_Hz', 'Audio_2nd_Amplitude',
                 'Audio_3rd_Freq_Hz', 'Audio_3rd_Amplitude', 'Audio_4th_Freq_Hz', 'Audio_4th_Amplitude',
 
+                // Turn detection data
+                'GPS_Bearing_deg', 'Turn_Active', 'Turn_Direction', 'Turn_Bearing_Change_deg',
+                'Turn_Safety_Zone', 'Turn_Warning_Active',
+
                 // Computed values (derived from sensors and settings)
                 'Speed_mph', 'RPM', 'Distance_miles', 'MPG', 'Fuel_Used_gal',
                 'Trip_Distance_miles', 'Fuel_Remaining_gal', 'Estimated_Range_miles'
@@ -2052,6 +2460,14 @@
                     entry.audioHarmonics ? entry.audioHarmonics.third.amplitude : '',
                     entry.audioHarmonics ? entry.audioHarmonics.fourth.frequency : '',
                     entry.audioHarmonics ? entry.audioHarmonics.fourth.amplitude : '',
+
+                    // Turn detection data
+                    lastGPSBearing || '',
+                    currentTurn ? 'YES' : 'NO',
+                    currentTurn ? currentTurn.direction : '',
+                    currentTurn ? currentTurn.maxBearingChange : '',
+                    document.getElementById('turnSafetyZone') ? document.getElementById('turnSafetyZone').textContent : '',
+                    turnWarningActive ? 'YES' : 'NO',
 
                     // Computed values (derived from sensors and settings)
                     entry.speed,
