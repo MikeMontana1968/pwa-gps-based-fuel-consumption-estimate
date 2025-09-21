@@ -1526,7 +1526,7 @@
             // Detect gear shift conditions:
             // 1. Significant RPM drop (>15% and >300 RPM) over short time
             // 2. Current speed is maintained or increasing (rules out deceleration)
-            const currentSpeed = parseFloat(document.getElementById('currentSpeed').textContent) || 0;
+            // currentSpeed already declared above
 
             if (rpmDropPercent > 0.15 && rpmDrop > 300 && currentSpeed > 10) {
                 // Check if speed is stable/increasing (not just braking)
