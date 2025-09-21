@@ -586,6 +586,7 @@
         // Gear shift detection variables
         let rpmHistory = [];
         let lastValidRPM = 0;
+        let lastValidRPMTime = 0;
         let gearShiftDetected = false;
         let gearShiftEndTime = 0;
 
@@ -1106,12 +1107,31 @@
             // Detect gear shift conditions
             detectGearShift();
 
-            // Adaptive thresholds based on gear shift detection
-            const baseAmplitudeThreshold = gearShiftDetected ? 160 : 220; // Lower threshold during gear shifts
+            // Adaptive thresholds based on speed, gear shifts, and RPM context
+            const currentSpeed = parseFloat(document.getElementById('currentSpeed').textContent) || 0;
+
+            // Speed-based ambient noise adjustment (higher speeds = more road/wind noise)
+            const speedNoiseFactor = Math.min(1.5, 1.0 + (currentSpeed - 20) * 0.01); // Increase threshold 1% per mph over 20
+
+            // RPM-based engine volume adjustment (cruising RPM quieter than idle)
+            const expectedRPM = calculateExpectedRPM(currentSpeed);
+            const rpmVolumeFactor = expectedRPM < calibration.engine.idleRPM * 1.5 ? 0.7 : 1.0; // Quieter at low cruise RPM
+
+            // Gear shift sensitivity boost
+            const gearShiftFactor = gearShiftDetected ? 0.6 : 1.0; // Much more sensitive during gear shifts
+
+            // Recent RPM loss penalty (if we lost RPM detection recently, be more sensitive)
+            const timeSinceLastRPM = Date.now() - (lastValidRPMTime || 0);
+            const rpmLossFactor = (timeSinceLastRPM > 2000 && timeSinceLastRPM < 10000) ? 0.8 : 1.0;
+
+            // Combined adaptive threshold
+            const baseThreshold = 180; // Lower base threshold
+            const adaptiveThreshold = baseThreshold * speedNoiseFactor * rpmVolumeFactor * gearShiftFactor * rpmLossFactor;
+
             const baseConfidenceThreshold = gearShiftDetected ? 250 : 350; // Lower confidence requirement
 
             // Calculate RPM from detected peaks - adaptive threshold
-            if (peaks.length > 0 && peaks[0].amplitude > baseAmplitudeThreshold) {
+            if (peaks.length > 0 && peaks[0].amplitude > adaptiveThreshold) {
                 let bestRPM = 0;
                 let bestConfidence = 0;
                 
@@ -1175,6 +1195,7 @@
 
                     // Update RPM history for gear shift detection
                     lastValidRPM = bestRPM;
+                    lastValidRPMTime = Date.now(); // Track when we last had valid RPM
                     document.getElementById('currentRPM').textContent = Math.round(currentRPM);
                 } else {
                     // No confident reading - decay current RPM
@@ -1214,7 +1235,18 @@
                 gearShiftDetected = false;
             }
 
-            // Only check for gear shifts if we have enough history and current RPM > idle
+            // Check for RPM detection loss (potential gear shift indicator)
+            const timeSinceLastValidRPM = Date.now() - (lastValidRPMTime || 0);
+            const currentSpeed = parseFloat(document.getElementById('currentSpeed').textContent) || 0;
+
+            // If we lost RPM detection at highway speeds, likely a gear shift
+            if (timeSinceLastValidRPM > 1500 && timeSinceLastValidRPM < 8000 && currentSpeed > 25 && !gearShiftDetected) {
+                gearShiftDetected = true;
+                gearShiftEndTime = now + 5000; // Extend sensitive period for 5 seconds
+                console.log('Gear shift detected via RPM loss at', currentSpeed, 'mph');
+            }
+
+            // Only check for traditional gear shift detection if we have enough history and current RPM > idle
             if (rpmHistory.length < 5 || currentRPM < calibration.engine.idleRPM) {
                 return;
             }
