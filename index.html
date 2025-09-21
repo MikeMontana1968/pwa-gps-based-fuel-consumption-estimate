@@ -407,6 +407,14 @@
             Allow both for full functionality (lean angle, RPM, fuel analysis).
         </div>
 
+        <!-- Debug Panel for iOS Troubleshooting -->
+        <div class="status" id="debugPanel" style="display: none; background: rgba(0, 255, 255, 0.1); border-color: rgba(0, 255, 255, 0.3);">
+            <strong>🔧 Debug Info:</strong>
+            <div id="debugMessages" style="font-family: monospace; font-size: 0.8em; margin-top: 10px; max-height: 150px; overflow-y: auto;">
+                Ready for debugging...
+            </div>
+        </div>
+
         <!-- Data Logging Status -->
         <div class="calibration" id="dataLogStatus" style="display: none;">
             <h3>📊 Data Logging Status</h3>
@@ -486,7 +494,7 @@
 
     <!-- Version Footer -->
     <div style="text-align: center; padding: 20px; opacity: 0.7; font-size: 0.8em; color: white;">
-        v2.6.1 • Cornering Analytics Edition • Built 2025-09-21 11:46 EST
+        v2.6.1 • Cornering Analytics Edition • Built 2025-09-21 11:51 EST
     </div>
 
     <!-- PWA Install Banner -->
@@ -528,7 +536,7 @@
                 deferredPrompt.prompt();
                 deferredPrompt.userChoice.then((choiceResult) => {
                     if (choiceResult.outcome === 'accepted') {
-                        console.log('User accepted the install prompt');
+                        debugLog('✅ User accepted the install prompt');
                     }
                     deferredPrompt = null;
                     hideInstallBanner();
@@ -571,10 +579,10 @@
                 
                 navigator.serviceWorker.register(swUrl)
                     .then((registration) => {
-                        console.log('SW registered: ', registration);
+                        debugLog('✅ Service worker registered successfully');
                     })
                     .catch((registrationError) => {
-                        console.log('SW registration failed: ', registrationError);
+                        debugLog(`❌ Service worker registration failed: ${registrationError}`);
                     });
             });
         }
@@ -718,13 +726,28 @@
                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
         }
 
+        // Debug function for iOS troubleshooting (since no dev console)
+        function debugLog(message) {
+            const debugPanel = document.getElementById('debugPanel');
+            const debugMessages = document.getElementById('debugMessages');
+
+            if (debugPanel && debugMessages) {
+                debugPanel.style.display = 'block';
+                const timestamp = new Date().toLocaleTimeString();
+                debugMessages.innerHTML += `<br>[${timestamp}] ${message}`;
+                debugMessages.scrollTop = debugMessages.scrollHeight;
+            }
+
+            console.log(message); // Keep console logs for desktop debugging
+        }
+
         // Wrapper function to handle async startTracking with proper error handling
         function handleStartTracking() {
-            console.log('Start Tracking button clicked');
+            debugLog('🔘 Start Tracking button clicked');
             document.getElementById('status').textContent = 'Initializing tracking...';
 
             startTracking().catch(error => {
-                console.error('Start tracking failed:', error);
+                debugLog(`❌ Start tracking failed: ${error.message}`);
                 document.getElementById('status').textContent = `Start tracking failed: ${error.message}`;
 
                 // Re-enable the start button on error
@@ -899,47 +922,50 @@
         }
         
         async function startTracking() {
-            console.log('startTracking() called');
+            debugLog('📍 startTracking() called');
 
             if (!navigator.geolocation) {
-                console.log('GPS not supported');
+                debugLog('❌ GPS not supported by browser');
                 document.getElementById('status').textContent = 'GPS not supported by this browser.';
                 throw new Error('GPS not supported by this browser');
             }
 
-            console.log('GPS supported, checking iOS permissions...');
+            debugLog('✅ GPS supported, checking iOS permissions...');
 
             // iOS 13+ requires explicit permission for motion sensors
             if (isIOS() && typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+                debugLog('📱 iOS detected, requesting motion permissions...');
                 document.getElementById('status').textContent = 'Requesting iOS motion sensor permissions...';
 
                 try {
+                    debugLog('🔄 Requesting DeviceMotionEvent permission...');
                     const motionPermission = await DeviceMotionEvent.requestPermission();
                     iosPermissionsGranted.motion = (motionPermission === 'granted');
 
                     if (!iosPermissionsGranted.motion) {
-                        console.log('DeviceMotionEvent permission:', motionPermission);
+                        debugLog(`❌ DeviceMotionEvent permission: ${motionPermission}`);
                     } else {
-                        console.log('DeviceMotionEvent permission granted');
+                        debugLog('✅ DeviceMotionEvent permission granted');
                     }
                 } catch (error) {
-                    console.log('DeviceMotionEvent permission error:', error);
+                    debugLog(`❌ DeviceMotionEvent permission error: ${error.message}`);
                     iosPermissionsGranted.motion = false;
                 }
 
                 // Also request orientation permission if available
                 if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                     try {
+                        debugLog('🔄 Requesting DeviceOrientationEvent permission...');
                         const orientationPermission = await DeviceOrientationEvent.requestPermission();
                         iosPermissionsGranted.orientation = (orientationPermission === 'granted');
 
                         if (!iosPermissionsGranted.orientation) {
-                            console.log('DeviceOrientationEvent permission denied');
+                            debugLog(`❌ DeviceOrientationEvent permission denied`);
                         } else {
-                            console.log('DeviceOrientationEvent permission granted');
+                            debugLog('✅ DeviceOrientationEvent permission granted');
                         }
                     } catch (error) {
-                        console.log('DeviceOrientationEvent permission error:', error);
+                        debugLog(`❌ DeviceOrientationEvent permission error: ${error.message}`);
                         iosPermissionsGranted.orientation = false;
                     }
                 }
@@ -957,7 +983,7 @@
             }
 
             // Request GPS permission and start tracking
-            console.log('Starting GPS tracking...');
+            debugLog('🛰️ Starting GPS tracking...');
             document.getElementById('status').textContent = 'Requesting GPS location permission...';
 
             const options = {
@@ -967,14 +993,14 @@
             };
 
             try {
-                console.log('Calling navigator.geolocation.watchPosition...');
+                debugLog('📍 Calling navigator.geolocation.watchPosition...');
                 watchId = navigator.geolocation.watchPosition(
                     handlePositionUpdate,
                     handlePositionError,
                     options
                 );
 
-                console.log('GPS watchPosition started, watchId:', watchId);
+                debugLog(`✅ GPS watchPosition started, watchId: ${watchId}`);
 
                 isTracking = true;
                 isPaused = false;
@@ -983,7 +1009,7 @@
                 document.getElementById('pauseBtn').disabled = false;
                 document.getElementById('status').textContent = 'GPS tracking started. Waiting for position data...';
 
-                console.log('UI updated, tracking state set');
+                debugLog('✅ UI updated, tracking state set');
 
             } catch (error) {
                 console.error('GPS permission error:', error);
@@ -1001,7 +1027,7 @@
                 try {
                     startRPMDetection();
                 } catch (error) {
-                    console.log('RPM detection failed:', error);
+                    debugLog(`❌ RPM detection failed: ${error}`);
                     document.getElementById('status').textContent += ' (RPM detection unavailable)';
                 }
             }
@@ -1010,7 +1036,7 @@
             try {
                 startMotionDetection();
             } catch (error) {
-                console.log('Motion detection failed:', error);
+                debugLog(`❌ Motion detection failed: ${error}`);
                 document.getElementById('status').textContent += ' (Motion sensors unavailable)';
             }
 
@@ -1280,7 +1306,7 @@
                 analyzeRPM();
                 
             } catch (error) {
-                console.log('RPM detection failed:', error.message);
+                debugLog(`❌ RPM detection failed: ${error.message}`);
                 // Continue with GPS-only tracking
             }
         }
@@ -1469,7 +1495,7 @@
             if (timeSinceLastValidRPM > 1500 && timeSinceLastValidRPM < 8000 && currentSpeed > 25 && !gearShiftDetected) {
                 gearShiftDetected = true;
                 gearShiftEndTime = now + 5000; // Extend sensitive period for 5 seconds
-                console.log('Gear shift detected via RPM loss at', currentSpeed, 'mph');
+                debugLog(`⚙️ Gear shift detected via RPM loss at ${currentSpeed} mph`);
             }
 
             // Only check for traditional gear shift detection if we have enough history and current RPM > idle
@@ -1501,7 +1527,7 @@
                 if (currentSpeed >= previousSpeed * 0.95) {
                     gearShiftDetected = true;
                     gearShiftEndTime = now + 2000; // Maintain gear shift mode for 2 seconds
-                    console.log(`Gear shift detected: RPM ${oldestRPM} → ${newestRPM} (${(rpmDropPercent*100).toFixed(1)}% drop) at ${currentSpeed} mph`);
+                    debugLog(`⚙️ Gear shift detected: RPM ${oldestRPM} → ${newestRPM} (${(rpmDropPercent*100).toFixed(1)}% drop) at ${currentSpeed} mph`);
                 }
             }
         }
@@ -1548,7 +1574,7 @@
         function startMotionDetection() {
             // Enhanced error handling and fallback behavior
             if (!('DeviceMotionEvent' in window)) {
-                console.log('DeviceMotionEvent not supported - using fallback simulation');
+                debugLog('⚠️ DeviceMotionEvent not supported - using fallback simulation');
                 enableMotionFallback();
                 return;
             }
@@ -1561,7 +1587,7 @@
                             if (permission === 'granted') {
                                 enableMotionListeners();
                             } else {
-                                console.log('Motion permission denied - using limited functionality');
+                                debugLog('❌ Motion permission denied - using limited functionality');
                                 showMotionPermissionMessage();
                             }
                         })
@@ -1595,7 +1621,7 @@
         function enableMotionFallback() {
             // Provide basic fallback when motion detection fails
             motionEnabled = false;
-            console.log('Using motion detection fallback');
+            debugLog('⚠️ Using motion detection fallback');
 
             // Show placeholder values
             document.getElementById('accelMagnitude').textContent = '0.0';
@@ -2269,7 +2295,7 @@
                     peakLeanAngle: 0
                 };
 
-                console.log(`Turn initiated: ${currentTurn.direction}, ${bearingChange.toFixed(1)}° change at ${currentSpeed} mph`);
+                debugLog(`🔄 Turn initiated: ${currentTurn.direction}, ${bearingChange.toFixed(1)}° change at ${currentSpeed} mph`);
                 evaluateTurnSafety();
             }
 
@@ -2341,7 +2367,7 @@
             // Update warning state
             if (warnings.length > 0 && !turnWarningActive) {
                 turnWarningActive = true;
-                console.log('Turn Warning:', warnings.join(' | '));
+                debugLog(`⚠️ Turn Warning: ${warnings.join(' | ')}`);
                 displayTurnWarning(warnings);
             } else if (warnings.length === 0 && turnWarningActive) {
                 turnWarningActive = false;
@@ -2356,7 +2382,7 @@
             if (!currentTurn) return;
 
             const duration = (timestamp - currentTurn.startTime) / 1000;
-            console.log(`Turn completed: ${currentTurn.direction}, ` +
+            debugLog(`✅ Turn completed: ${currentTurn.direction}, ` +
                        `${currentTurn.maxBearingChange.toFixed(1)}° total, ` +
                        `${duration.toFixed(1)}s, ` +
                        `peak lean: ${currentTurn.peakLeanAngle.toFixed(1)}°, ` +
@@ -2386,7 +2412,7 @@
                 };
 
                 // This would integrate with existing logging system
-                console.log('Turn logged:', turnLogEntry);
+                debugLog(`📊 Turn logged: ${JSON.stringify(turnLogEntry)}`);
             }
         }
 
