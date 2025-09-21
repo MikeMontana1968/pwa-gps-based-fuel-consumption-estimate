@@ -505,6 +505,13 @@
     </div>
 
     <script>
+        // IMMEDIATE TEST - Check if JavaScript is working at all
+        try {
+            alert('JavaScript is working! Loading app...');
+        } catch (e) {
+            console.error('JavaScript basic test failed:', e);
+        }
+
         // PWA Installation
         let deferredPrompt;
         let isInstalled = false;
