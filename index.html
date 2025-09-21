@@ -224,7 +224,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>🏍️ Motorcycle Fuel Tracker</h1>
+        <h1>🔧 Built {{BUILD_DATE}} • Debugging iOS Issue</h1>
         
         <div class="metrics-grid">
             <div class="metric-card">
@@ -526,14 +526,11 @@
         });
         
         function showInstallBanner() {
-            if (!isInstalled && !localStorage.getItem('installBannerDismissed')) {
-                document.getElementById('installBanner').style.display = 'block';
-            }
+            // Install banner removed - no-op
         }
-        
+
         function hideInstallBanner() {
-            document.getElementById('installBanner').style.display = 'none';
-            localStorage.setItem('installBannerDismissed', 'true');
+            // Install banner removed - no-op
         }
         
         function installApp() {
@@ -541,7 +538,7 @@
                 deferredPrompt.prompt();
                 deferredPrompt.userChoice.then((choiceResult) => {
                     if (choiceResult.outcome === 'accepted') {
-                        debugLog('✅ User accepted the install prompt');
+                        console.log('✅ User accepted the install prompt');
                     }
                     deferredPrompt = null;
                     hideInstallBanner();
