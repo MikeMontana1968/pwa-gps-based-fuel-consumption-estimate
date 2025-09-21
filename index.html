@@ -743,6 +743,15 @@
 
         // Wrapper function to handle async startTracking with proper error handling
         function handleStartTracking() {
+            // Force debug panel to show immediately
+            const debugPanel = document.getElementById('debugPanel');
+            if (debugPanel) {
+                debugPanel.style.display = 'block';
+            }
+
+            // Test basic alert first
+            alert('Button clicked! Debug panel should appear.');
+
             debugLog('🔘 Start Tracking button clicked');
             document.getElementById('status').textContent = 'Initializing tracking...';
 
