@@ -228,17 +228,15 @@
         
         <div class="metrics-grid">
             <div class="metric-card">
-                <div class="metric-label">Current Speed</div>
-                <div class="metric-value" id="currentSpeed">0</div>
-                <div class="metric-label">MPH</div>
-            </div>
-            
-            <div class="metric-card">
-                <div class="metric-label">Engine RPM</div>
-                <div class="metric-value">
-                    <span id="currentRPM" style="color: #00ff00;">--</span>
+                <div class="metric-label">Engine</div>
+                <div class="metric-value" style="font-size: 0.8em; line-height: 1.1;">
+                    <div style="font-size: 1.2em;">
+                        <span id="currentSpeed">0</span>
+                    </div>
+                    <div style="margin-top: 3px;">
+                        <span id="currentRPM" style="color: #00ff00;">--</span>
+                    </div>
                 </div>
-                <div class="metric-label">RPM</div>
             </div>
             
             <div class="metric-card" style="display: none;">
@@ -251,11 +249,11 @@
                 <div class="metric-label">Fuel Analysis</div>
                 <div class="metric-value" style="font-size: 0.7em; line-height: 1.1;">
                     <div style="font-size: 1.1em; font-weight: bold;">
-                        <span id="fuelInjectionRate">--cc/stroke</span>
+                        <span id="fuelInjectionRate">--</span>
                     </div>
                     <div style="margin-top: 3px;">
-                        Load: <span id="throttleLoad">--%</span><br>
-                        AFR: <span id="estimatedAFR">--:1</span>
+                        <span id="throttleLoad">--</span><br>
+                        <span id="estimatedAFR">--</span>
                     </div>
                     <div style="margin-top: 3px; font-size: 0.9em;">
                         Used: <span id="fuelUsed">0g 0oz</span><br>
@@ -279,7 +277,19 @@
             <div class="metric-card">
                 <div class="metric-label">Roll Angle</div>
                 <div class="metric-value" style="height: 120px; display: flex; align-items: center; justify-content: center;">
-                    <svg id="rollHorizon" width="100" height="100" viewBox="-50 -50 100 100" style="background: linear-gradient(to bottom, #87CEEB 0%, #87CEEB 50%, #8B4513 50%, #8B4513 100%); border-radius: 50%; border: 2px solid rgba(255,255,255,0.3);">
+                    <svg id="rollHorizon" width="100" height="100" viewBox="-50 -50 100 100" style="border-radius: 50%; border: 2px solid rgba(255,255,255,0.3);">
+                        <!-- Dynamic gradient definition -->
+                        <defs>
+                            <linearGradient id="horizonGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" stop-color="#87CEEB" />
+                                <stop offset="50%" stop-color="#87CEEB" />
+                                <stop offset="50%" stop-color="#8B4513" id="groundColorStop" />
+                                <stop offset="100%" stop-color="#8B4513" id="groundColorStop2" />
+                            </linearGradient>
+                        </defs>
+                        <!-- Background circle with dynamic gradient -->
+                        <circle cx="0" cy="0" r="50" fill="url(#horizonGradient)" />
+
                         <!-- Fixed aircraft symbol (center) -->
                         <g id="aircraftSymbol">
                             <!-- Main body -->
@@ -392,7 +402,6 @@
             <button id="pauseBtn" onclick="togglePause()" disabled>Pause</button>
             <button onclick="resetTrip()">Reset Trip</button>
             <button onclick="refillTank()">Refill Tank</button>
-            <button id="dataLogBtn" onclick="toggleDataLogging()">Start Data Log</button>
             <button onclick="exportDataLog()">Export Log</button>
             <button onclick="clearDataLog()">Clear Log</button>
         </div>
@@ -605,7 +614,7 @@
         let isLogging = false;
         let logStartTime = null;
         let maxLogEntries = 10000; // Limit to prevent memory issues
-        let loggingTimer = null; // Timer for 10Hz logging
+        let loggingTimer = null; // Timer for 2Hz logging
         
         // RPM Detection variables
         let rpmAudioContext = null;
@@ -1013,6 +1022,12 @@
                 document.getElementById('pauseBtn').disabled = false;
                 document.getElementById('status').textContent = 'GPS tracking started. Waiting for position data...';
 
+                // Auto-start data logging when tracking begins
+                if (!dataLoggingEnabled) {
+                    startDataLogging();
+                    debugLog('✅ Data logging auto-started with tracking');
+                }
+
                 debugLog('✅ UI updated, tracking state set');
 
             } catch (error) {
@@ -1085,6 +1100,18 @@
             
             // Stop RPM detection
             stopRPMDetection();
+
+            // Auto-stop data logging when tracking stops
+            if (dataLoggingEnabled) {
+                stopDataLogging();
+                debugLog('✅ Data logging auto-stopped with tracking');
+
+                // Auto-save log file if there's data to export
+                if (dataLog.length > 0) {
+                    exportDataLog();
+                    debugLog('✅ Log file auto-saved to downloads');
+                }
+            }
 
             // Release wake lock when stopping tracking
             if (wakeLock) {
@@ -1216,7 +1243,7 @@
                 tripDistance += distance;
             }
 
-            // Note: Data logging now happens at 10Hz via timer, not GPS updates
+            // Note: Data logging now happens at 2Hz via timer, not GPS updates
 
             // Update displays - fuel is handled by updateRemainingFuel()
             updateRemainingFuel();
@@ -1365,7 +1392,7 @@
             
             // Find all significant peaks above threshold - much higher to prevent false positives
             for (let i = minBin; i <= maxBin; i++) {
-                if (rpmDataArray[i] > 180) { // Even higher threshold to eliminate ambient noise
+                if (rpmDataArray[i] > 120) { // Reduced threshold for better highway detection
                     // Check if this is a local maximum
                     const isLocalMax = (i === 0 || rpmDataArray[i] > rpmDataArray[i-1]) &&
                                       (i === rpmDataArray.length-1 || rpmDataArray[i] > rpmDataArray[i+1]);
@@ -1392,8 +1419,8 @@
             // Adaptive thresholds based on speed, gear shifts, and RPM context
             const currentSpeed = parseFloat(document.getElementById('currentSpeed').textContent) || 0;
 
-            // Speed-based ambient noise adjustment (higher speeds = more road/wind noise)
-            const speedNoiseFactor = Math.min(1.5, 1.0 + (currentSpeed - 20) * 0.01); // Increase threshold 1% per mph over 20
+            // Speed-based ambient noise adjustment (more conservative increase)
+            const speedNoiseFactor = Math.min(1.3, 1.0 + (currentSpeed - 30) * 0.005); // Gentler increase starting at 30mph
 
             // RPM-based engine volume adjustment (cruising RPM quieter than idle)
             const expectedRPM = calculateExpectedRPM(currentSpeed);
@@ -1407,10 +1434,10 @@
             const rpmLossFactor = (timeSinceLastRPM > 2000 && timeSinceLastRPM < 10000) ? 0.8 : 1.0;
 
             // Combined adaptive threshold
-            const baseThreshold = 180; // Lower base threshold
+            const baseThreshold = 120; // Much lower base threshold for highway detection
             const adaptiveThreshold = baseThreshold * speedNoiseFactor * rpmVolumeFactor * gearShiftFactor * rpmLossFactor;
 
-            const baseConfidenceThreshold = gearShiftDetected ? 250 : 350; // Lower confidence requirement
+            const baseConfidenceThreshold = gearShiftDetected ? 180 : 220; // Significantly lower confidence requirement
 
             // Calculate RPM from detected peaks - adaptive threshold
             if (peaks.length > 0 && peaks[0].amplitude > adaptiveThreshold) {
@@ -1758,7 +1785,10 @@
             // Calculate lateral G-force (sideways acceleration in G units)
             // Y-axis represents left/right acceleration relative to motorcycle
             // Convert from m/s² to G (1G = 9.81 m/s²)
-            currentLateralG = y / 9.81;
+            // Apply filtering to reduce highway jitter
+            const rawLateralG = y / 9.81;
+            const gAlpha = 0.8; // Heavier smoothing for G-force display
+            currentLateralG = currentLateralG * gAlpha + rawLateralG * (1 - gAlpha);
 
             // Update displays
             updateRollDisplay(currentRollAngle);
@@ -1866,8 +1896,8 @@
             const rollAngleRad = Math.atan2(gx, Math.sqrt(gy*gy + gz*gz));
             let rollAngle = rollAngleRad * (180 / Math.PI);
 
-            // Apply small deadband for zero position stability
-            if (Math.abs(rollAngle) < 1.0) {
+            // Apply larger deadband for highway stability
+            if (Math.abs(rollAngle) < 3.0) {
                 rollAngle = 0;
             }
 
@@ -1901,11 +1931,11 @@
             const gForceElement = document.getElementById('lateralGForce');
             const absG = Math.abs(currentLateralG);
 
-            if (absG < 0.3) {
+            if (absG < 0.5) {
                 gForceElement.style.color = '#00ff00'; // Green - gentle cornering
-            } else if (absG < 0.6) {
+            } else if (absG < 0.8) {
                 gForceElement.style.color = '#ffff00'; // Yellow - moderate cornering
-            } else if (absG < 1.0) {
+            } else if (absG < 1.2) {
                 gForceElement.style.color = '#ff8800'; // Orange - aggressive cornering
             } else {
                 gForceElement.style.color = '#ff0000'; // Red - extreme cornering
@@ -1924,11 +1954,11 @@
             const gForceElement = document.getElementById('lateralGForce');
             const absG = Math.abs(smoothedG);
 
-            if (absG < 0.3) {
+            if (absG < 0.5) {
                 gForceElement.style.color = '#00ff00'; // Green - gentle cornering
-            } else if (absG < 0.6) {
+            } else if (absG < 0.8) {
                 gForceElement.style.color = '#ffff00'; // Yellow - moderate cornering
-            } else if (absG < 1.0) {
+            } else if (absG < 1.2) {
                 gForceElement.style.color = '#ff8800'; // Orange - aggressive cornering
             } else {
                 gForceElement.style.color = '#ff0000'; // Red - extreme cornering
@@ -2025,15 +2055,26 @@
             // Progressive safety zones based on lateral G and lean angle
             const leanAngleAbs = Math.abs(currentLeanAngle);
 
-            // Define zone thresholds
-            if (currentLateralG < 0.5 && leanAngleAbs < 26) {
+            // Define zone thresholds (more realistic for motorcycles)
+            if (currentLateralG < 0.7 && leanAngleAbs < 30) {
                 return { zone: 'SAFE', color: '#00ff00' };
-            } else if (currentLateralG < 0.7 && leanAngleAbs < 35) {
+            } else if (currentLateralG < 1.0 && leanAngleAbs < 40) {
                 return { zone: 'CAUTION', color: '#ffff00' };
-            } else if (currentLateralG < 0.9 && leanAngleAbs < 42) {
+            } else if (currentLateralG < 1.3 && leanAngleAbs < 50) {
                 return { zone: 'WARNING', color: '#ff8800' };
             } else {
                 return { zone: 'DANGER', color: '#ff0000' };
+            }
+        }
+
+        function updateHorizonColor(safetyColor) {
+            // Update the artificial horizon bottom color to match safety zone
+            const groundColorStop1 = document.getElementById('groundColorStop');
+            const groundColorStop2 = document.getElementById('groundColorStop2');
+
+            if (groundColorStop1 && groundColorStop2) {
+                groundColorStop1.setAttribute('stop-color', safetyColor);
+                groundColorStop2.setAttribute('stop-color', safetyColor);
             }
         }
 
@@ -2059,12 +2100,18 @@
                 document.getElementById('maxSafeSpeed').textContent = Math.round(maxSafeSpeedTight);
                 document.getElementById('turnSafetyZone').textContent = safetyZone.zone;
                 document.getElementById('turnSafetyZone').style.color = safetyZone.color;
+
+                // Update artificial horizon bottom color
+                updateHorizonColor(safetyZone.color);
             } else {
                 // Reset display when not moving
                 document.getElementById('safeRadius').textContent = '--';
                 document.getElementById('maxSafeSpeed').textContent = '--';
                 document.getElementById('turnSafetyZone').textContent = 'SAFE';
                 document.getElementById('turnSafetyZone').style.color = '#00ff00';
+
+                // Reset horizon to safe color
+                updateHorizonColor('#00ff00');
             }
         }
 
@@ -2208,17 +2255,17 @@
             if (currentFuelInjection.perStroke > 0) {
                 const injectionElement = document.getElementById('fuelInjectionRate');
                 if (injectionElement) {
-                    injectionElement.textContent = `${currentFuelInjection.perStroke.toFixed(2)}cc/stroke`;
+                    injectionElement.textContent = `${currentFuelInjection.perStroke.toFixed(2)}`;
                 }
 
                 const loadElement = document.getElementById('throttleLoad');
                 if (loadElement) {
-                    loadElement.textContent = `${(currentFuelInjection.throttleLoad * 100).toFixed(0)}%`;
+                    loadElement.textContent = `${(currentFuelInjection.throttleLoad * 100).toFixed(0)}`;
                 }
 
                 const afrElement = document.getElementById('estimatedAFR');
                 if (afrElement) {
-                    afrElement.textContent = `${currentFuelInjection.estimatedAFR.toFixed(1)}:1`;
+                    afrElement.textContent = `${currentFuelInjection.estimatedAFR.toFixed(1)}`;
                 }
             }
         }
@@ -2641,7 +2688,7 @@
                 window.logStatusInterval = null;
             }
 
-            // Stop 10Hz logging timer
+            // Stop 2Hz logging timer
             if (loggingTimer) {
                 clearInterval(loggingTimer);
                 loggingTimer = null;
@@ -2652,7 +2699,7 @@
         }
 
         function startHighFrequencyLogging() {
-            // Log data at 10Hz (every 100ms) when logging is enabled
+            // Log data at 2Hz (every 500ms) for optimized battery and storage
             loggingTimer = setInterval(() => {
                 if (isLogging && lastPosition) {
                     // Get current values for logging
@@ -2661,11 +2708,11 @@
 
                     // Use minimal distance since this is frequent logging
                     const distance = 0; // High frequency logging doesn't track distance
-                    const timeMinutes = 0.1 / 60; // 100ms in minutes
+                    const timeMinutes = 0.5 / 60; // 500ms in minutes
 
                     logDataPoint(currentSpeed, currentMPGValue, distance, timeMinutes);
                 }
-            }, 100); // 100ms = 10Hz
+            }, 500); // 500ms = 2Hz
         }
 
         function logDataPoint(speed, mpg, distance, timeMinutes) {
