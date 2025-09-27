@@ -612,6 +612,7 @@
         // Data logging system
         let dataLog = [];
         let isLogging = false;
+        let dataLoggingEnabled = false;
         let logStartTime = null;
         let maxLogEntries = 10000; // Limit to prevent memory issues
         let loggingTimer = null; // Timer for 2Hz logging
@@ -2666,6 +2667,7 @@
 
         function startDataLogging() {
             isLogging = true;
+            dataLoggingEnabled = true;
             logStartTime = Date.now();
             dataLog = [];
 
@@ -2682,6 +2684,7 @@
 
         function stopDataLogging() {
             isLogging = false;
+            dataLoggingEnabled = false;
 
             if (window.logStatusInterval) {
                 clearInterval(window.logStatusInterval);
